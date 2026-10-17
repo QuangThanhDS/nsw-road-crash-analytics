@@ -162,3 +162,38 @@ print("\nTop odds ratios:\n", odds.tail(12).round(2).to_string(), "\n", odds.hea
 json.dump({"n_train": int(len(Xtr)), "n_test": int(len(Xte)), "ksi_rate_test": float(yte.mean()),
            "top_decile_ksi": float(cal.actual_ksi.iloc[-1]), "bottom_decile_ksi": float(cal.actual_ksi.iloc[0])},
           open(ROOT / "reports" / f"model_summary{SUFFIX}.json", "w"), indent=2)
+
+# Worked examples for the appendix: how each model scores one high-risk and one low-risk 2024 crash
+test_rows = c.loc[test].assign(p_lr=probs["Logistic regression"], p_gb=probs["Gradient boosting"])
+quiet = ["has_pedestrian", "has_pedal_cycle", "has_heavy_vehicle", "has_parked_vehicle"]
+profiles = {
+    "high_risk": (test_rows["has_motorcycle"].eq(1) & test_rows["Speed limit"].eq("100 km/h")
+                  & test_rows["First impact type"].eq("Vehicle - Object") & test_rows["ksi"].eq(1)),
+    "low_risk": (test_rows["Key TU type"].eq("Car (sedan/hatch)") & test_rows["Speed limit"].eq("60 km/h")
+                 & test_rows["First impact type"].eq("Rear end") & test_rows["ksi"].eq(0)
+                 & test_rows[quiet + ["has_motorcycle", "hit_tree_or_pole"]].sum(axis=1).eq(0)),
+}
+lr_prep, lr_m = lr_fit.named_steps["prep"], lr_fit.named_steps["m"]
+gb_prep = models["Gradient boosting"].named_steps["prep"]
+enc_names = [n.replace("cat__", "").replace("remainder__", "") for n in lr_prep.get_feature_names_out()]
+examples = {}
+for label, mask in profiles.items():
+    grp = test_rows[mask]
+    row = grp.iloc[(grp.p_lr - grp.p_lr.median()).abs().argsort().iloc[0]]  # typical member of the group
+    x_raw = X.loc[[row.name]]
+    x_enc = lr_prep.transform(x_raw)
+    x_enc = x_enc.toarray()[0] if hasattr(x_enc, "toarray") else np.asarray(x_enc)[0]
+    contrib = {enc_names[j]: float(lr_m.coef_[0][j] * x_enc[j]) for j in np.flatnonzero(x_enc)}
+    logit = float(lr_m.intercept_[0] + sum(contrib.values()))
+    staged = [float(pp[0, 1]) for pp in gb_fit.staged_predict_proba(gb_prep.transform(x_raw))]
+    examples[label] = {
+        "crash_id": int(row["Crash ID"]), "actual_ksi": int(row["ksi"]),
+        "degree": row["Degree of crash - detailed"],
+        "predictors": {k: (v.item() if hasattr(v, "item") else v) for k, v in x_raw.iloc[0].items()},
+        "lr_intercept": float(lr_m.intercept_[0]), "lr_contributions": contrib,
+        "lr_logit": logit, "lr_probability": float(1 / (1 + np.exp(-logit))),
+        "gb_staged_probability": {str(m): staged[m - 1] for m in [1, 5, 10, 25, 50, len(staged)]},
+        "gb_probability": float(row["p_gb"]),
+    }
+json.dump(examples, open(ROOT / "reports" / f"worked_examples{SUFFIX}.json", "w"), indent=2)
+print(json.dumps(examples, indent=1))

@@ -114,16 +114,28 @@ reg["share_of_crashes"] = reg.crashes / reg.crashes.sum()
 reg["share_of_deaths"] = reg.killed / reg.killed.sum()
 tables["region"] = reg
 
-# 6. Severity by first impact type
+# 6. Severity by first impact type: 100% stacked bar (fatal or serious vs other outcomes)
 fi = c[c["First impact type"] != "Unknown"].groupby("First impact type").agg(n=("ksi", "size"), ksi=("ksi", "mean"),
                                                                              fatal=("fatal", "mean"))
 fi = fi[fi.n >= 100].sort_values("ksi")
-fig, ax = plt.subplots(figsize=(7, 4))
-ax.barh(fi.index, fi.ksi * 100, color=BLUE, height=0.6)
-for i, (v, n) in enumerate(zip(fi.ksi * 100, fi.n)):
-    ax.text(v + 0.8, i, f"{v:.0f}%  (n={n:,})", va="center", fontsize=8, color=INK2)
-ax.set_xlim(0, fi.ksi.max() * 130); ax.grid(axis="y", visible=False)
-ax.set_title("Fatal or serious share by first impact type"); ax.set_xlabel("% of crashes")
+ksi_pct, other_pct = fi.ksi * 100, 100 - fi.ksi * 100
+fig, ax = plt.subplots(figsize=(8, 4.4))
+y = np.arange(len(fi))
+ax.barh(y, ksi_pct, color=BLUE, height=0.62, label="Fatal or serious injury (KSI)")
+ax.barh(y, other_pct, left=ksi_pct, color=ORANGE, height=0.62, label="Moderate, minor or no injury",
+        edgecolor=SURFACE, linewidth=2)
+for i, (k, o, n) in enumerate(zip(ksi_pct, other_pct, fi.n)):
+    ax.text(k / 2, i, f"{k:.0f}%", ha="center", va="center", fontsize=8, color="white", fontweight="bold")
+    ax.text(k + o / 2, i, f"{o:.0f}%", ha="center", va="center", fontsize=8, color=INK)
+    ax.text(101.5, i, f"n={n:,}", ha="left", va="center", fontsize=8, color=INK2)
+ax.set_yticks(y, fi.index)
+ax.set_xlim(0, 100); ax.set_xticks([0, 25, 50, 75, 100], ["0%", "25%", "50%", "75%", "100%"])
+ax.grid(False); ax.spines["left"].set_visible(False); ax.tick_params(axis="y", length=0)
+ax.set_title("Crash outcomes by first impact type", pad=26)
+ax.set_xlabel("Share of crashes of that type")
+ax.legend(frameon=False, fontsize=8, ncol=2, loc="lower left", bbox_to_anchor=(-0.01, 0.995),
+          borderaxespad=0, handlelength=1.2)
+fig.text(0.01, 0.01, "Impact types with at least 100 crashes, NSW 2020–2024.", fontsize=7, color=INK2)
 save(fig, "05_ksi_by_impact_type.png")
 tables["impact"] = fi
 

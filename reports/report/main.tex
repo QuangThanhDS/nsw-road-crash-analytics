@@ -15,6 +15,7 @@
 \usepackage{listings}
 \usepackage{booktabs}
 \usepackage{tabularx}
+\usepackage{longtable}
 \usepackage{array}
 \usepackage{float}
 \usepackage[font=small,labelfont=bf]{caption}
@@ -636,7 +637,7 @@ Severity bar chart (Fig.~\ref{fig:severity}) & -- & Class balance; justifies the
 Yearly trend lines (Fig.~\ref{fig:trend}) & Q4 & COVID dip and post-2022 rise & TfNSW, public \\
 Day $\times$ time heatmaps (Fig.~\ref{fig:heatmap}) & Q4 & Volume against severity by time & Police \\
 Speed limit $\times$ region lines (Fig.~\ref{fig:speed}) & Q2 & Regional gap at equal speed & TfNSW, councils \\
-Impact-type bar chart (Fig.~\ref{fig:impact}) & Q1 & Severity by crash mechanism & All \\
+Impact-type 100\% stacked bars (Fig.~\ref{fig:impact}) & Q1 & Severity share by crash mechanism & All \\
 Hexbin maps (Fig.~\ref{fig:map}) & Q3 & Where crashes and severe crashes are & Councils, TfNSW \\
 ROC/PR curves (Fig.~\ref{fig:roc}) & Q1 & Model performance & Analysts \\
 Odds ratios and importance (Figs.~\ref{fig:odds}, \ref{fig:perm}) & Q1 & Drivers of severity & Policy makers \\
@@ -745,7 +746,7 @@ fatal share, at 6.4\%.
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.72\textwidth]{05_ksi_by_impact_type.png}
-\caption{Share of crashes that are fatal or serious, by first impact type (types with at least 100 crashes).}
+\caption{Crash outcomes by first impact type: share of crashes that were fatal or serious (blue) against moderate, minor or no injury (orange). Impact types with at least 100 crashes.}
 \label{fig:impact}
 \end{figure}
 
@@ -854,19 +855,480 @@ clearly and give consistent, policy-relevant drivers. The next stage will:
 % =================================================================
 \newpage
 \appendix
-\section{Code evidence}
-\label{app:code}
-The listings below are the exact source files that produced every number in Sections~\ref{sec:model}
-and~\ref{sec:prelim}. They are included directly from the project repository
-(\url{https://github.com/QuangThanhDS/nsw-road-crash-analytics}, folder \texttt{src/}). The pipeline runs in the order
-\texttt{load\_data.py} $\rightarrow$ \texttt{features.py} (imported) $\rightarrow$ \texttt{model.py}.
+\section{How the models work}
+\label{app:models}
 
+This appendix explains, step by step, how the two predictive models in Section~\ref{sec:model} turn the predictors
+of a crash into a risk of a killed-or-seriously-injured (KSI) outcome. It lists every predictor each model uses and
+works through two real crashes from the 2024 test year. The code that builds and runs the models is in
+Appendix~\ref{app:code}.
+
+\subsection{What goes in and what comes out}
+Both models receive the same 23 predictors for every crash (Table~\ref{tab:predictors}): 16 categorical
+descriptions of the road, environment, time and crash mechanism, plus 7 crash-level counts and flags derived
+from the TRAFFIC UNIT table. Both return one number per crash: an estimated probability $\hat{p}$ that the crash is
+KSI. A crash is labelled \emph{high risk} if $\hat{p} \geq 0.5$.
+
+The two models read the predictors differently:
+\begin{itemize}
+  \item \textbf{Logistic regression} cannot read text categories. Each categorical predictor is therefore
+        \emph{one-hot encoded}: \emph{Speed limit}, for example, becomes 12 columns (\texttt{Speed limit\_50 km/h},
+        \texttt{Speed limit\_60 km/h}, \ldots), and a crash has a 1 in the column for its speed limit and 0 in the others.
+        Levels seen fewer than 50 times in training are pooled into one \enquote{infrequent} column per predictor.
+        The 16 categorical predictors become 121 columns, and with the 7 numeric and binary predictors the model sees
+        \textbf{128 input columns} (Table~\ref{tab:allcoef}).
+  \item \textbf{Gradient boosting} uses the 23 predictors directly. Categories are stored as integer codes, and the
+        trees split them as groups of categories (for example \{Head-on, Rollover\} against the rest).
+\end{itemize}
+
+\subsection{Logistic regression, step by step}
+\label{app:lr}
+
+\textbf{Step 1 --- add up a score.} Every input column $j$ has a learned weight $\beta_j$. For a given crash, the model
+starts from an intercept $\beta_0$ and adds the weight of every column that is switched on (multiplied by its value
+for the numeric predictor). The total is the crash's \emph{log-odds score} $z$:
+\[
+  z = \beta_0 + \beta_{\text{speed}=100} + \beta_{\text{impact}=\text{Vehicle--Object}} + \cdots + \beta_{\text{units}} \times (\text{no.\ of units}) + \beta_{\text{motorcycle}} \times 1 .
+\]
+A positive weight pushes the crash towards KSI, and a negative weight pushes it away.
+
+\textbf{Step 2 --- turn the score into a probability.} The logistic (sigmoid) function squeezes any score into the range
+0 to 1: $\hat{p} = 1/(1+e^{-z})$. A score of 0 gives 0.5, large positive scores approach 1, and large negative scores
+approach 0.
+
+\textbf{Step 3 --- learn the weights.} The weights are chosen to make the training crashes' observed outcomes as likely
+as possible (maximum likelihood), which means minimising the log-loss in Equation~\ref{eq:lrloss}. Two adjustments are
+made. First, each KSI crash counts about 2.25 times and each non-KSI crash about 0.64 times (class weighting), so the
+minority class is not ignored. Second, an L2 penalty ($C=0.5$) pulls weights towards zero, which stops rare categories
+from receiving extreme weights. The optimiser (L-BFGS) adjusts all 129 numbers (128 weights plus the intercept)
+together until the loss stops improving; this took 92 iterations.
+
+\textbf{Step 4 --- read the weights.} Raising $e$ to a weight gives an \emph{odds ratio}. An odds ratio of 5.72 for
+\texttt{has\_motorcycle} means that, other predictors being equal, the odds of KSI are 5.72 times higher when a motorcycle
+is involved. Because every level of a categorical predictor has its own column and the penalty shrinks them, the
+weights should be compared \emph{between levels of the same predictor}. For example, \emph{Rear end} ($-0.77$) against
+\emph{Head-on} ($+0.69$) shows how much the impact type changes the score. A level should not be read in isolation.
+Table~\ref{tab:allcoef} lists every weight and odds ratio the model learned.
+
+\textbf{Worked example.} Table~\ref{tab:example_inputs} shows two real 2024 crashes: a motorcycle that left a curved
+100\,km/h country road and struck an object (crash~1360953, actual outcome: serious injury), and a two-car
+rear-end crash on a 60\,km/h divided road in metropolitan Sydney (crash~1343582, actual outcome: moderate injury).
+Each was chosen as the most typical member (median predicted risk) of its crash profile in 2024.
+Table~\ref{tab:example_lr} shows how logistic regression adds up their scores.
+
+\begin{table}[H]
+\centering
+\caption{Predictor values of the two worked-example crashes (2024 test year).}
+\label{tab:example_inputs}
+\footnotesize
+\begin{tabularx}{\textwidth}{@{}P{4.6cm}LL@{}}
+\toprule
+\textbf{Predictor} & \textbf{High-risk example (\#1360953)} & \textbf{Low-risk example (\#1343582)} \\
+\midrule
+Urbanisation & Country non-urban & Sydney metro. area \\
+Speed limit & 100 km/h & 60 km/h \\
+Weather & Unknown & Fine \\
+Natural lighting & Daylight & Daylight \\
+Surface condition & Dry & Dry \\
+Road surface & Sealed & Sealed \\
+Alignment & Curved & Curved \\
+Type of location & 2-way undivided & Divided road \\
+Road classification (admin) & Regional & State \\
+First impact type & Vehicle - Object & Rear end \\
+Key TU type & Motorcycle & Car (sedan/hatch) \\
+Two-hour intervals & 10:00 - 11:59 & 12:00 - 13:59 \\
+Day of week of crash & Wednesday & Sunday \\
+School zone active & Not a school zone & Not a school zone \\
+Signals operation & Nil & Nil \\
+Other traffic control & No traffic controls & No traffic controls \\
+No. of traffic units involved & 1 & 2 \\
+has\_pedestrian & 0 & 0 \\
+has\_motorcycle & 1 & 0 \\
+has\_pedal\_cycle & 0 & 0 \\
+has\_heavy\_vehicle & 0 & 0 \\
+hit\_tree\_or\_pole & 0 & 0 \\
+has\_parked\_vehicle & 0 & 0 \\
+\midrule
+Actual outcome & Serious Injury (KSI = 1) & Moderate Injury (KSI = 0) \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{table}[H]
+\centering
+\caption{Logistic regression score for the two example crashes: each predictor's contribution
+$\beta_j x_j$ to the log-odds $z$, then the probability.}
+\label{tab:example_lr}
+\footnotesize
+\begin{tabular}{@{}lrr@{}}
+\toprule
+\textbf{Contribution to $z$ from\ldots} & \textbf{High-risk} & \textbf{Low-risk} \\
+\midrule
+Intercept $\beta_0$ & -0.448 & -0.448 \\
+Urbanisation & -0.072 & -0.016 \\
+Speed limit & +0.421 & -0.069 \\
+Weather & -0.049 & +0.032 \\
+Natural lighting & +0.440 & +0.440 \\
+Surface condition & -0.031 & -0.031 \\
+Road surface & -0.203 & -0.203 \\
+Alignment & -0.141 & -0.141 \\
+Type of location & +0.111 & -0.112 \\
+Road classification (admin) & -0.107 & -0.193 \\
+First impact type & +0.045 & -0.768 \\
+Key TU type & +0.193 & +0.083 \\
+Two-hour intervals & -0.023 & -0.006 \\
+Day of week of crash & -0.081 & -0.047 \\
+School zone active & -0.212 & -0.212 \\
+Signals operation & +0.128 & +0.128 \\
+Other traffic control & -0.073 & -0.073 \\
+No. of traffic units involved & +0.248 & +0.497 \\
+has\_pedestrian & +0.000 & +0.000 \\
+has\_motorcycle & +1.743 & +0.000 \\
+has\_pedal\_cycle & +0.000 & +0.000 \\
+has\_heavy\_vehicle & +0.000 & +0.000 \\
+hit\_tree\_or\_pole & +0.000 & +0.000 \\
+has\_parked\_vehicle & +0.000 & +0.000 \\
+\midrule
+\textbf{Log-odds score $z$} & \textbf{+1.890} & \textbf{-1.139} \\
+\textbf{Probability $\hat{p} = 1/(1+e^{-z})$} & \textbf{0.869} & \textbf{0.242} \\
+Label at threshold 0.5 & High risk & Not high risk \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+For the motorcycle crash, the single largest push comes from \texttt{has\_motorcycle} ($+1.74$), helped by the
+100\,km/h limit ($+0.42$). The score of $+1.89$ gives a probability of 0.87, and the crash is correctly flagged as
+high risk. For the rear-end crash, the impact type pulls the score down strongly ($-0.77$), giving $z = -1.14$ and
+$\hat{p} = 0.24$, so it is correctly not flagged. Both probabilities are higher than the true risk because of class
+weighting (Section~\ref{sec:validation}); the \emph{ranking} of the two crashes is what matters.
+
+\subsection{Gradient boosting, step by step}
+\label{app:gb}
+
+Gradient boosting builds its prediction from many small decision trees, each correcting the mistakes of the ones
+before it \parencite{friedman2001,ke2017}.
+
+\textbf{Step 1 --- start from a neutral guess.} Every crash starts with the same score $F_0$. With balanced class
+weights this corresponds to a probability of about 0.5.
+
+\textbf{Step 2 --- measure the errors.} For each training crash, the model computes how far its current probability is
+from the truth (the gradient of the log-loss: roughly $y_i - \hat{p}_i$). KSI crashes with low predicted risk have
+large positive errors, and non-KSI crashes with high predicted risk have large negative ones.
+
+\textbf{Step 3 --- fit a small tree to the errors.} A decision tree with at most 31 leaves is grown to separate crashes
+with similar errors. At each split, the tree tries every predictor. For numeric predictors it tries thresholds over at most
+255 histogram bins; for categorical ones, groupings of categories. It keeps the split that best reduces the error.
+A tree might, for instance, first split on \texttt{has\_motorcycle}, then on \emph{First impact type} $\in$
+\{Head-on, Vehicle--Object, Rollover\}, then on \emph{Speed limit} $\geq$ 90\,km/h. Each leaf stores a correction value.
+
+\textbf{Step 4 --- take a small step.} Each crash's score is moved by its leaf's correction multiplied by the learning
+rate $\eta = 0.05$. Small steps mean no single tree dominates, which makes the model more robust.
+
+\textbf{Step 5 --- repeat, and stop at the right time.} Steps 2--4 are repeated, with each new tree focusing on what is
+still wrong. scikit-learn sets aside 10\% of the training crashes and stops once 10 consecutive trees fail to improve
+the loss on them (early stopping). Training stopped after \textbf{105 trees}.
+
+\textbf{Step 6 --- predict.} A new crash is passed down all 105 trees; its leaf corrections are added to $F_0$, and the
+total score is turned into a probability with the same sigmoid function as logistic regression
+(Equation~\ref{eq:gbm}).
+
+Because a path down a tree combines several predictors (motorcycle \emph{and} 100\,km/h \emph{and} curved road), gradient
+boosting learns interactions automatically. The cost is that there is no single weight per predictor to read.
+Instead, \textbf{permutation importance} measures how much the 2024 ROC-AUC drops when one predictor's values are randomly
+shuffled (Table~\ref{tab:allperm}).
+
+\textbf{Worked example.} Table~\ref{tab:example_gb} follows the same two crashes as the trees are added. Both start near
+0.5. The motorcycle crash's risk climbs as successive trees recognise its high-risk profile, while the rear-end crash's
+risk falls. Most of the movement happens in the first 50 trees, which is why early stopping ended training at 105.
+
+\begin{table}[H]
+\centering
+\caption{Gradient boosting probability for the two example crashes after $m$ trees.}
+\label{tab:example_gb}
+\footnotesize
+\begin{tabular}{@{}rrr@{}}
+\toprule
+\textbf{Trees used ($m$)} & \textbf{High-risk example} & \textbf{Low-risk example} \\
+\midrule
+1 & 0.517 & 0.485 \\
+5 & 0.575 & 0.430 \\
+10 & 0.631 & 0.377 \\
+25 & 0.737 & 0.289 \\
+50 & 0.796 & 0.241 \\
+105 & 0.802 & 0.224 \\
+\midrule
+Label at threshold 0.5 & High risk & Not high risk \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[H]
+\centering
+\caption{Gradient boosting permutation importance for all 23 predictors (mean drop in 2024 ROC-AUC over five shuffles).
+Values near zero mean the model barely relies on the predictor; a small negative value is random noise.}
+\label{tab:allperm}
+\footnotesize
+\begin{tabular}{@{}rlr@{}}
+\toprule
+\textbf{Rank} & \textbf{Predictor} & \textbf{Drop in ROC-AUC} \\
+\midrule
+1 & has\_motorcycle & 0.0764 \\
+2 & First impact type & 0.0544 \\
+3 & Speed limit & 0.0248 \\
+4 & hit\_tree\_or\_pole & 0.0220 \\
+5 & Key TU type & 0.0158 \\
+6 & has\_pedal\_cycle & 0.0125 \\
+7 & has\_pedestrian & 0.0088 \\
+8 & Type of location & 0.0066 \\
+9 & Natural lighting & 0.0047 \\
+10 & No. of traffic units involved & 0.0035 \\
+11 & has\_heavy\_vehicle & 0.0019 \\
+12 & Two-hour intervals & 0.0014 \\
+13 & Alignment & 0.0012 \\
+14 & has\_parked\_vehicle & 0.0010 \\
+15 & Signals operation & 0.0006 \\
+16 & Other traffic control & 0.0004 \\
+17 & Road classification (admin) & 0.0002 \\
+18 & Road surface & 0.0002 \\
+19 & Urbanisation & 0.0001 \\
+20 & School zone active & 0.0001 \\
+21 & Weather & 0.0000 \\
+22 & Day of week of crash & 0.0000 \\
+23 & Surface condition & -0.0004 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Comparing the two models}
+\begin{table}[H]
+\centering
+\caption{How the two models differ in practice.}
+\label{tab:modelcompare}
+\footnotesize
+\begin{tabularx}{\textwidth}{@{}P{3.2cm}LL@{}}
+\toprule
+ & \textbf{Logistic regression} & \textbf{Gradient boosting} \\
+\midrule
+Form of the model & One weighted sum of 128 inputs & Sum of 105 small trees \\
+Predictor interactions & Only if added by hand & Learned automatically \\
+Explaining a prediction & Exact: add up the contributions (Table~\ref{tab:example_lr}) & Indirect: importance, staged predictions \\
+2024 test ROC-AUC & 0.742 & 0.749 \\
+Best use here & Primary model for stakeholders & Check on whether non-linear effects are missed \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Complete list of logistic regression inputs}
+Table~\ref{tab:allcoef} lists all 128 encoded inputs, grouped by the original predictor, with the learned weight $\beta_j$
+and odds ratio $e^{\beta_j}$. Within each predictor, levels are sorted from the most to the least severe association.
+
+{\scriptsize
+\setlength{\tabcolsep}{4pt}
+\begin{longtable}{@{}p{3.6cm}p{6.6cm}rr@{}}
+\caption{All logistic regression inputs with learned weights and odds ratios.}\label{tab:allcoef}\\
+\toprule
+\textbf{Predictor} & \textbf{Level / encoded column} & \textbf{$\beta_j$} & \textbf{Odds ratio} \\
+\midrule
+\endfirsthead
+\multicolumn{4}{@{}l}{\emph{Table~\ref{tab:allcoef} continued}}\\
+\toprule
+\textbf{Predictor} & \textbf{Level / encoded column} & \textbf{$\beta_j$} & \textbf{Odds ratio} \\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+Urbanisation & Wollongong met. area & -0.007 & 0.99 \\
+ & Sydney metro. area & -0.016 & 0.98 \\
+ & Newcastle met. area & -0.018 & 0.98 \\
+ & Country urban & -0.032 & 0.97 \\
+ & Country non-urban & -0.072 & 0.93 \\
+ & (infrequent levels, $<$50 rows) & -0.248 & 0.78 \\
+\addlinespace[2pt]
+Speed limit & 110 km/h & +0.555 & 1.74 \\
+ & 100 km/h & +0.421 & 1.52 \\
+ & 80 km/h & +0.345 & 1.41 \\
+ & 90 km/h & +0.217 & 1.24 \\
+ & 70 km/h & +0.112 & 1.12 \\
+ & 60 km/h & -0.069 & 0.93 \\
+ & 10 km/h & -0.185 & 0.83 \\
+ & (infrequent levels, $<$50 rows) & -0.257 & 0.77 \\
+ & 50 km/h & -0.373 & 0.69 \\
+ & 30 km/h & -0.532 & 0.59 \\
+ & 40 km/h & -0.627 & 0.53 \\
+\addlinespace[2pt]
+Weather & Raining & +0.038 & 1.04 \\
+ & Fine & +0.032 & 1.03 \\
+ & Fog or mist & -0.001 & 1.00 \\
+ & Overcast & -0.015 & 0.98 \\
+ & Unknown & -0.049 & 0.95 \\
+ & Other & -0.150 & 0.86 \\
+ & Snowing & -0.247 & 0.78 \\
+\addlinespace[2pt]
+Natural lighting & Daylight & +0.440 & 1.55 \\
+ & Dawn & +0.389 & 1.47 \\
+ & Darkness & +0.328 & 1.39 \\
+ & Dusk & +0.231 & 1.26 \\
+ & Unknown & -1.781 & 0.17 \\
+\addlinespace[2pt]
+Surface condition & Unknown & +0.300 & 1.35 \\
+ & Dry & -0.031 & 0.97 \\
+ & Wet & -0.176 & 0.84 \\
+ & Snow or ice & -0.487 & 0.61 \\
+\addlinespace[2pt]
+Road surface & Unknown & +0.031 & 1.03 \\
+ & Sealed & -0.203 & 0.82 \\
+ & Unsealed & -0.221 & 0.80 \\
+\addlinespace[2pt]
+Alignment & Curved & -0.141 & 0.87 \\
+ & Straight & -0.252 & 0.78 \\
+\addlinespace[2pt]
+Type of location & Single limited access & +0.150 & 1.16 \\
+ & Other & +0.141 & 1.15 \\
+ & 2-way undivided & +0.111 & 1.12 \\
+ & Multiple intersection & +0.085 & 1.09 \\
+ & T-junction & +0.073 & 1.08 \\
+ & Y-junction & +0.018 & 1.02 \\
+ & X-intersection & +0.010 & 1.01 \\
+ & Dual freeway & +0.001 & 1.00 \\
+ & (infrequent levels, $<$50 rows) & -0.091 & 0.91 \\
+ & Divided road & -0.112 & 0.89 \\
+ & L-junction & -0.201 & 0.82 \\
+ & 1-way street & -0.250 & 0.78 \\
+ & Roundabout & -0.329 & 0.72 \\
+\addlinespace[2pt]
+Road classification (admin) & Local & -0.093 & 0.91 \\
+ & Regional & -0.107 & 0.90 \\
+ & State & -0.193 & 0.82 \\
+\addlinespace[2pt]
+First impact type & Person - Object & +1.492 & 4.44 \\
+ & Head-on & +0.690 & 1.99 \\
+ & Vehicle - Pedestrian & +0.244 & 1.28 \\
+ & (infrequent levels, $<$50 rows) & +0.176 & 1.19 \\
+ & Vehicle - Object & +0.045 & 1.05 \\
+ & Rollover & +0.007 & 1.01 \\
+ & Right angle & -0.166 & 0.85 \\
+ & Other angle & -0.368 & 0.69 \\
+ & Rear end & -0.768 & 0.46 \\
+ & Vehicle - Animal & -0.863 & 0.42 \\
+ & Unknown & -0.880 & 0.41 \\
+\addlinespace[2pt]
+Key TU type & Motorised scooter (mob. aid) & +1.972 & 7.18 \\
+ & Passenger van & +0.379 & 1.46 \\
+ & (infrequent levels, $<$50 rows) & +0.361 & 1.43 \\
+ & Motorised push scooters & +0.225 & 1.25 \\
+ & Motorcycle & +0.193 & 1.21 \\
+ & Pedal cycle & +0.190 & 1.21 \\
+ & Light truck utility(from 2018) & +0.109 & 1.11 \\
+ & Station wagon & +0.100 & 1.11 \\
+ & Light truck & +0.086 & 1.09 \\
+ & Car (sedan/hatch) & +0.083 & 1.09 \\
+ & 4 wheel drive / SUV & +0.046 & 1.05 \\
+ & Motor scooter & +0.024 & 1.02 \\
+ & Utility & -0.026 & 0.97 \\
+ & STA bus & -0.219 & 0.80 \\
+ & Semi-trailer & -0.413 & 0.66 \\
+ & B-double (road train prior 98) & -0.435 & 0.65 \\
+ & Large rigid & -0.540 & 0.58 \\
+ & Other bus & -0.589 & 0.55 \\
+ & Unknown motor vehicle & -0.867 & 0.42 \\
+ & Unknown type & -1.070 & 0.34 \\
+\addlinespace[2pt]
+Two-hour intervals & (infrequent levels, $<$50 rows) & +0.049 & 1.05 \\
+ & 20:00 - 21:59 & +0.005 & 1.00 \\
+ & 22:00 - Midnight & +0.005 & 1.00 \\
+ & 18:00 - 19:59 & -0.000 & 1.00 \\
+ & 12:00 - 13:59 & -0.006 & 0.99 \\
+ & 00:01 - 01:59 & -0.016 & 0.98 \\
+ & 04:00 - 05:59 & -0.020 & 0.98 \\
+ & 10:00 - 11:59 & -0.023 & 0.98 \\
+ & 06:00 - 07:59 & -0.029 & 0.97 \\
+ & 14:00 - 15:59 & -0.044 & 0.96 \\
+ & 02:00 - 03:59 & -0.090 & 0.91 \\
+ & 08:00 - 09:59 & -0.107 & 0.90 \\
+ & 16:00 - 17:59 & -0.117 & 0.89 \\
+\addlinespace[2pt]
+Day of week of crash & Monday & +0.008 & 1.01 \\
+ & Sunday & -0.047 & 0.95 \\
+ & Tuesday & -0.060 & 0.94 \\
+ & Thursday & -0.061 & 0.94 \\
+ & Friday & -0.071 & 0.93 \\
+ & Wednesday & -0.081 & 0.92 \\
+ & Saturday & -0.081 & 0.92 \\
+\addlinespace[2pt]
+School zone active & Yes & +0.044 & 1.05 \\
+ & Not a school zone & -0.212 & 0.81 \\
+ & No & -0.226 & 0.80 \\
+\addlinespace[2pt]
+Signals operation & On & +0.168 & 1.18 \\
+ & Nil & +0.128 & 1.14 \\
+ & Off & -0.242 & 0.79 \\
+ & Unknown / not stated & -0.447 & 0.64 \\
+\addlinespace[2pt]
+Other traffic control & No right turn & +0.155 & 1.17 \\
+ & Other traf. control & +0.135 & 1.14 \\
+ & Stop sign & +0.013 & 1.01 \\
+ & Give way sign & -0.006 & 0.99 \\
+ & (infrequent levels, $<$50 rows) & -0.028 & 0.97 \\
+ & No traffic controls & -0.073 & 0.93 \\
+ & Left turn only & -0.150 & 0.86 \\
+ & Road/rail worker & -0.174 & 0.84 \\
+ & Ped crossing & -0.264 & 0.77 \\
+\addlinespace[2pt]
+No. of traffic units involved & (value) & +0.248 & 1.28 \\
+\addlinespace[2pt]
+has\_pedestrian & 1 = yes & +1.483 & 4.41 \\
+\addlinespace[2pt]
+has\_motorcycle & 1 = yes & +1.743 & 5.72 \\
+\addlinespace[2pt]
+has\_pedal\_cycle & 1 = yes & +1.466 & 4.33 \\
+\addlinespace[2pt]
+has\_heavy\_vehicle & 1 = yes & +0.597 & 1.82 \\
+\addlinespace[2pt]
+hit\_tree\_or\_pole & 1 = yes & +0.905 & 2.47 \\
+\addlinespace[2pt]
+has\_parked\_vehicle & 1 = yes & -0.021 & 0.98 \\
+\addlinespace[2pt]
+\end{longtable}
+}
+
+% =================================================================
+\newpage
+\section{Code used to build the models}
+\label{app:code}
+Everything in this report was produced by three scripts in the project repository
+(\url{https://github.com/QuangThanhDS/nsw-road-crash-analytics}, folder \texttt{src/}). They run in the order
+\texttt{load\_data.py} $\rightarrow$ \texttt{features.py} (imported) $\rightarrow$ \texttt{model.py}. The listings below are
+included directly from those files, so they are exactly the code that produced the results.
+
+\subsection{Model-building code, explained}
+The core of the modelling is a short block in \texttt{model.py}. It is shown first with an explanation; the complete
+files follow in Section~\ref{app:fullcode}.
+
+\textbf{Predictors and target.} The 16 categorical and 7 numeric predictors are listed by name. \emph{Street lighting}
+is removed for the main run because of leakage. Missing categories become an explicit \texttt{"Missing"} level, and
+crashes are split by year.
+\lstinputlisting[firstline=32, lastline=53, firstnumber=32, caption={Predictor lists, leakage exclusion, target and temporal split (\texttt{src/model.py}).}, label={lst:predictors}]{../../src/model.py}
+
+\textbf{The three models.} Each model is a scikit-learn \texttt{Pipeline}, so the encoding is learned from training data
+only. Logistic regression uses the one-hot encoder \texttt{ohe}. Gradient boosting uses an ordinal encoder and is told
+which columns are categorical. Both use balanced class weights.
+\lstinputlisting[firstline=55, lastline=68, firstnumber=55, caption={Encoders, model definitions and hyperparameters (\texttt{src/model.py}).}, label={lst:pipelines}]{../../src/model.py}
+
+\textbf{Fitting and scoring.} Each pipeline is fitted on 2020--2023 and scored on 2024, and the metrics in
+Table~\ref{tab:results} are computed at the 0.5 threshold.
+\lstinputlisting[firstline=70, lastline=84, firstnumber=70, caption={Fitting, prediction and evaluation metrics (\texttt{src/model.py}).}, label={lst:fit}]{../../src/model.py}
+
+\textbf{Worked examples.} The two example crashes are selected, and each predictor's logistic regression contribution
+and gradient boosting's staged probabilities are extracted (Tables~\ref{tab:example_lr} and~\ref{tab:example_gb}).
+\lstinputlisting[firstline=166, lastline=199, firstnumber=166, caption={Worked-example extraction (\texttt{src/model.py}).}, label={lst:examples}]{../../src/model.py}
+
+\clearpage
+\subsection{Complete source files}
+\label{app:fullcode}
 \lstinputlisting[caption={\texttt{src/features.py}: cleaning, target definition (line 23) and TRAFFIC UNIT flags (lines 33--46).},
                  label={lst:features}]{../../src/features.py}
 
-\lstinputlisting[caption={\texttt{src/model.py}: predictors (lines 32--45), temporal split (line 51), pipelines and
-                 hyperparameters (lines 55--68), metrics (lines 70--84), diagnostics and leave-one-year-out check
-                 (lines 86--110), permutation importance (line 146).},
+\lstinputlisting[caption={\texttt{src/model.py}: complete modelling script.},
                  label={lst:model}]{../../src/model.py}
 
 \lstinputlisting[caption={\texttt{src/load\_data.py}: conversion of the TfNSW workbooks to CSV.},
