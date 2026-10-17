@@ -1,0 +1,4 @@
+model,ROC-AUC,PR-AUC,recall_KSI,precision_KSI,F1_KSI,balanced_acc,fatal_crashes_flagged
+Baseline (always 'not KSI'),0.5,0.251,0.0,0.0,0.0,0.5,0.0
+Logistic regression,0.805,0.54,0.796,0.447,0.573,0.733,0.95
+Gradient boosting,0.809,0.553,0.809,0.449,0.578,0.738,0.95

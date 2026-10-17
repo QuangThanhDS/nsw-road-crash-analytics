@@ -30,3 +30,15 @@ docs/              notes, data dictionary, stakeholder analysis
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 ```
+
+## Reproduce the results
+```bash
+cd src
+python3 load_data.py      # xlsx -> data/processed/*.csv (about 30 s)
+python3 profile_data.py   # data quality profile -> reports/data_quality_profile.csv
+python3 eda.py            # charts -> reports/figures/01-06, tables -> reports/eda_tables.xlsx
+python3 model.py          # main KSI models -> reports/figures/07-09, reports/model_results.csv
+python3 model.py all      # comparison run that includes Street lighting (leakage check)
+```
+
+Findings so far: [docs/preliminary_results.md](docs/preliminary_results.md)

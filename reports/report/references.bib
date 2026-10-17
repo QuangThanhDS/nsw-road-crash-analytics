@@ -1,0 +1,244 @@
+% ---------------------------------------------------------------
+% Data sources
+% ---------------------------------------------------------------
+@dataset{tfnsw_crashdata,
+  author       = {{Transport for NSW}},
+  title        = {{NSW} crash data: {NSW} road crash data 2020--2024 ({CRASH} and {TRAFFIC} {UNIT} tables)},
+  year         = {2025},
+  date         = {2025-10-09},
+  publisher    = {Transport for NSW Open Data Hub},
+  version      = {2020--2024 release},
+  url          = {https://opendata.transport.nsw.gov.au/dataset/nsw-crash-data},
+  note         = {Licensed under CC BY}
+}
+
+@report{tfnsw_manual,
+  author       = {{Transport for NSW}},
+  title        = {Definitions and notes to support road crash data},
+  year         = {2021},
+  date         = {2021-09},
+  institution  = {Centre for Road Safety, Transport for NSW},
+  url          = {https://opendata.transport.nsw.gov.au/dataset/nsw-crash-data}
+}
+
+@dataset{abs_asgs,
+  author       = {{Australian Bureau of Statistics}},
+  title        = {Australian Statistical Geography Standard ({ASGS}) {Edition} 3, {July} 2021--{June} 2026},
+  year         = {2021},
+  publisher    = {ABS},
+  url          = {https://www.abs.gov.au/statistics/standards/australian-statistical-geography-standard-asgs-edition-3/jul2021-jun2026},
+  note         = {Licensed under CC BY 4.0}
+}
+
+@software{suster_nswgeo,
+  author       = {Suster, Carl},
+  title        = {nswgeo: Geospatial data and maps for {New South Wales}, {Australia}},
+  year         = {2025},
+  version      = {0.6.0.9000},
+  type         = {R package},
+  url          = {https://github.com/cidm-ph/nswgeo}
+}
+
+% ---------------------------------------------------------------
+% Policy and context
+% ---------------------------------------------------------------
+@report{tfnsw_actionplan,
+  author       = {{Transport for NSW}},
+  title        = {2026 road safety action plan: Toward zero trauma on {NSW} roads},
+  year         = {2022},
+  institution  = {Transport for NSW},
+  url          = {https://towardszero.nsw.gov.au/sites/default/files/2022-04/TNSW9659%20Road-Safety-Action-Plan-2026-ACC_1.pdf}
+}
+
+@online{tfnsw_toll2024,
+  author       = {{Transport for NSW}},
+  title        = {Safer driving is the {New Year's} resolution {NSW} needs to lower road toll},
+  year         = {2025},
+  date         = {2025-01-02},
+  organization = {Transport for NSW},
+  url          = {https://www.transport.nsw.gov.au/system/files/media/documents/2025/250102%20MR%20Graham%20Aitchison%20annual%20road%20toll%202024.pdf},
+  note         = {Media release}
+}
+
+@report{who_2023,
+  author       = {{World Health Organization}},
+  title        = {Global status report on road safety 2023},
+  year         = {2023},
+  institution  = {World Health Organization},
+  url          = {https://www.who.int/publications/i/item/9789240086517}
+}
+
+% ---------------------------------------------------------------
+% Crash severity modelling literature
+% ---------------------------------------------------------------
+@article{savolainen2011,
+  author       = {Savolainen, Peter T. and Mannering, Fred L. and Lord, Dominique and Quddus, Mohammed A.},
+  title        = {The statistical analysis of highway crash-injury severities: A review and assessment of methodological alternatives},
+  journal      = {Accident Analysis \& Prevention},
+  year         = {2011},
+  volume       = {43},
+  number       = {5},
+  pages        = {1666--1676},
+  doi          = {10.1016/j.aap.2011.03.025}
+}
+
+@article{mannering2014,
+  author       = {Mannering, Fred L. and Bhat, Chandra R.},
+  title        = {Analytic methods in accident research: Methodological frontier and future directions},
+  journal      = {Analytic Methods in Accident Research},
+  year         = {2014},
+  volume       = {1},
+  pages        = {1--22},
+  doi          = {10.1016/j.amar.2013.09.001}
+}
+
+% ---------------------------------------------------------------
+% Methods
+% ---------------------------------------------------------------
+@article{friedman2001,
+  author       = {Friedman, Jerome H.},
+  title        = {Greedy function approximation: A gradient boosting machine},
+  journal      = {The Annals of Statistics},
+  year         = {2001},
+  volume       = {29},
+  number       = {5},
+  pages        = {1189--1232},
+  doi          = {10.1214/aos/1013203451}
+}
+
+@inproceedings{ke2017,
+  author       = {Ke, Guolin and Meng, Qi and Finley, Thomas and Wang, Taifeng and Chen, Wei and Ma, Weidong and Ye, Qiwei and Liu, Tie-Yan},
+  title        = {{LightGBM}: A highly efficient gradient boosting decision tree},
+  booktitle    = {Advances in Neural Information Processing Systems},
+  volume       = {30},
+  year         = {2017},
+  pages        = {3146--3154}
+}
+
+@article{breiman2001,
+  author       = {Breiman, Leo},
+  title        = {Random forests},
+  journal      = {Machine Learning},
+  year         = {2001},
+  volume       = {45},
+  number       = {1},
+  pages        = {5--32},
+  doi          = {10.1023/A:1010933404324}
+}
+
+@article{kaufman2012,
+  author       = {Kaufman, Shachar and Rosset, Saharon and Perlich, Claudia and Stitelman, Ori},
+  title        = {Leakage in data mining: Formulation, detection, and avoidance},
+  journal      = {ACM Transactions on Knowledge Discovery from Data},
+  year         = {2012},
+  volume       = {6},
+  number       = {4},
+  pages        = {1--21},
+  doi          = {10.1145/2382577.2382579}
+}
+
+@article{he2009,
+  author       = {He, Haibo and Garcia, Edwardo A.},
+  title        = {Learning from imbalanced data},
+  journal      = {IEEE Transactions on Knowledge and Data Engineering},
+  year         = {2009},
+  volume       = {21},
+  number       = {9},
+  pages        = {1263--1284},
+  doi          = {10.1109/TKDE.2008.239}
+}
+
+@article{saito2015,
+  author       = {Saito, Takaya and Rehmsmeier, Marc},
+  title        = {The precision-recall plot is more informative than the {ROC} plot when evaluating binary classifiers on imbalanced datasets},
+  journal      = {PLOS ONE},
+  year         = {2015},
+  volume       = {10},
+  number       = {3},
+  pages        = {e0118432},
+  doi          = {10.1371/journal.pone.0118432}
+}
+
+@inproceedings{niculescu2005,
+  author       = {Niculescu-Mizil, Alexandru and Caruana, Rich},
+  title        = {Predicting good probabilities with supervised learning},
+  booktitle    = {Proceedings of the 22nd International Conference on Machine Learning},
+  year         = {2005},
+  pages        = {625--632},
+  publisher    = {ACM},
+  doi          = {10.1145/1102351.1102430}
+}
+
+@article{carr1987,
+  author       = {Carr, Daniel B. and Littlefield, Richard J. and Nicholson, Wesley L. and Littlefield, Judith S.},
+  title        = {Scatterplot matrix techniques for large {N}},
+  journal      = {Journal of the American Statistical Association},
+  year         = {1987},
+  volume       = {82},
+  number       = {398},
+  pages        = {424--436},
+  doi          = {10.1080/01621459.1987.10478445}
+}
+
+% ---------------------------------------------------------------
+% Software
+% ---------------------------------------------------------------
+@article{pedregosa2011,
+  author       = {Pedregosa, Fabian and Varoquaux, Ga{\"e}l and Gramfort, Alexandre and Michel, Vincent and Thirion, Bertrand and Grisel, Olivier and Blondel, Mathieu and Prettenhofer, Peter and Weiss, Ron and Dubourg, Vincent and Vanderplas, Jake and Passos, Alexandre and Cournapeau, David and Brucher, Matthieu and Perrot, Matthieu and Duchesnay, {\'E}douard},
+  title        = {Scikit-learn: Machine learning in {Python}},
+  journal      = {Journal of Machine Learning Research},
+  year         = {2011},
+  volume       = {12},
+  pages        = {2825--2830}
+}
+
+@inproceedings{mckinney2010,
+  author       = {McKinney, Wes},
+  title        = {Data structures for statistical computing in {Python}},
+  booktitle    = {Proceedings of the 9th Python in Science Conference},
+  year         = {2010},
+  pages        = {56--61},
+  doi          = {10.25080/Majora-92bf1922-00a}
+}
+
+@article{hunter2007,
+  author       = {Hunter, John D.},
+  title        = {Matplotlib: A {2D} graphics environment},
+  journal      = {Computing in Science \& Engineering},
+  year         = {2007},
+  volume       = {9},
+  number       = {3},
+  pages        = {90--95},
+  doi          = {10.1109/MCSE.2007.55}
+}
+
+@book{hosmer2013,
+  author       = {Hosmer, David W. and Lemeshow, Stanley and Sturdivant, Rodney X.},
+  title        = {Applied logistic regression},
+  edition      = {3},
+  year         = {2013},
+  publisher    = {Wiley},
+  doi          = {10.1002/9781118548387}
+}
+
+@article{fawcett2006,
+  author       = {Fawcett, Tom},
+  title        = {An introduction to {ROC} analysis},
+  journal      = {Pattern Recognition Letters},
+  year         = {2006},
+  volume       = {27},
+  number       = {8},
+  pages        = {861--874},
+  doi          = {10.1016/j.patrec.2005.10.010}
+}
+
+@article{tashman2000,
+  author       = {Tashman, Leonard J.},
+  title        = {Out-of-sample tests of forecasting accuracy: An analysis and review},
+  journal      = {International Journal of Forecasting},
+  year         = {2000},
+  volume       = {16},
+  number       = {4},
+  pages        = {437--450},
+  doi          = {10.1016/S0169-2070(00)00065-0}
+}
