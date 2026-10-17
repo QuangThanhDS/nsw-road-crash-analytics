@@ -83,6 +83,32 @@ res = pd.DataFrame(results).set_index("model").round(3)
 print(res.to_string())
 res.to_csv(ROOT / "reports" / f"model_results{SUFFIX}.csv")
 
+# Diagnostics: training-set fit (overfitting check), model internals, and year-by-year stability
+from sklearn.base import clone
+diag = {"n_train": int(len(Xtr)), "n_test": int(len(Xte)),
+        "ksi_rate_train": float(ytr.mean()), "ksi_rate_test": float(yte.mean())}
+for name in ["Logistic regression", "Gradient boosting"]:
+    p_tr = models[name].predict_proba(Xtr)[:, 1]
+    diag[name] = {"train_roc_auc": roc_auc_score(ytr, p_tr), "test_roc_auc": roc_auc_score(yte, probs[name]),
+                  "train_pr_auc": average_precision_score(ytr, p_tr), "test_pr_auc": average_precision_score(yte, probs[name])}
+lr_fit = models["Logistic regression"]
+diag["Logistic regression"]["n_encoded_columns"] = int(len(lr_fit.named_steps["prep"].get_feature_names_out()))
+diag["Logistic regression"]["solver_iterations"] = int(lr_fit.named_steps["m"].n_iter_[0])
+gb_fit = models["Gradient boosting"].named_steps["m"]
+diag["Gradient boosting"]["boosting_iterations_used"] = int(gb_fit.n_iter_)
+diag["Gradient boosting"]["early_stopping_active"] = bool(gb_fit.do_early_stopping_)
+# Leave-one-year-out within the training years (2020-2023): train on 3 years, score the held-out year
+years = c.loc[train, "Year of crash"]
+loyo = {}
+for name in ["Logistic regression", "Gradient boosting"]:
+    loyo[name] = {}
+    for yr in sorted(years.unique()):
+        fit = clone(models[name]).fit(Xtr[years != yr], ytr[years != yr])
+        loyo[name][int(yr)] = roc_auc_score(ytr[years == yr], fit.predict_proba(Xtr[years == yr])[:, 1])
+diag["leave_one_year_out_roc_auc"] = loyo
+json.dump(diag, open(ROOT / "reports" / f"model_diagnostics{SUFFIX}.json", "w"), indent=2)
+print(json.dumps(diag, indent=1))
+
 # ROC and PR curves
 fig, axes = plt.subplots(1, 2, figsize=(10, 4))
 for (name, p), color in zip([(k, v) for k, v in probs.items() if "Baseline" not in k], [BLUE, ORANGE]):

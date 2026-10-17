@@ -1,0 +1,36 @@
+{
+  "n_train": 73143,
+  "n_test": 18939,
+  "ksi_rate_train": 0.22175737938011839,
+  "ksi_rate_test": 0.25117482443634825,
+  "Logistic regression": {
+    "train_roc_auc": 0.7415391745480565,
+    "test_roc_auc": 0.7422158297874056,
+    "train_pr_auc": 0.44007346425093,
+    "test_pr_auc": 0.4830661062219345,
+    "n_encoded_columns": 128,
+    "solver_iterations": 92
+  },
+  "Gradient boosting": {
+    "train_roc_auc": 0.7644536160677219,
+    "test_roc_auc": 0.748805966591789,
+    "train_pr_auc": 0.4795966987889644,
+    "test_pr_auc": 0.4982939590698825,
+    "boosting_iterations_used": 105,
+    "early_stopping_active": true
+  },
+  "leave_one_year_out_roc_auc": {
+    "Logistic regression": {
+      "2020": 0.7347070310340691,
+      "2021": 0.7299298286114858,
+      "2022": 0.748033577182416,
+      "2023": 0.739658310650064
+    },
+    "Gradient boosting": {
+      "2020": 0.7396517547591565,
+      "2021": 0.7336527294593914,
+      "2022": 0.7535096521100997,
+      "2023": 0.746278200341857
+    }
+  }
+}

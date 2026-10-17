@@ -10,7 +10,9 @@
 \usepackage{lmodern}
 \usepackage{microtype}
 \usepackage[a4paper,margin=2.5cm]{geometry}
+\usepackage{amsmath,amssymb}
 \usepackage{graphicx}
+\usepackage{listings}
 \usepackage{booktabs}
 \usepackage{tabularx}
 \usepackage{array}
@@ -19,7 +21,7 @@
 \usepackage{enumitem}
 \usepackage{xcolor}
 \usepackage{tikz}
-\usetikzlibrary{positioning,shapes.multipart}
+\usetikzlibrary{positioning,shapes.multipart,decorations.pathreplacing}
 \usepackage{fancyhdr}
 \usepackage{titlesec}
 \usepackage[english]{babel}
@@ -29,6 +31,13 @@
 \usepackage[hidelinks]{hyperref}
 
 \graphicspath{{../figures/}}
+
+\lstset{language=Python, basicstyle=\ttfamily\scriptsize, numbers=left, numberstyle=\tiny\color{gray},
+        numbersep=6pt, breaklines=true, breakatwhitespace=false, columns=fullflexible, keepspaces=true,
+        frame=single, rulecolor=\color{gray!40}, backgroundcolor=\color{gray!4},
+        keywordstyle=\color{accent}\bfseries, commentstyle=\color{gray}\itshape, stringstyle=\color{orange!70!black},
+        showstringspaces=false, captionpos=t, xleftmargin=1.5em, framexleftmargin=1.5em,
+        literate={–}{{--}}1 {—}{{---}}1 {×}{{$\times$}}1 {≤}{{$\le$}}1}
 
 % ---------- Styling ----------
 \definecolor{accent}{HTML}{1C5CAB}
@@ -304,36 +313,289 @@ crash, which matches the unit of the severity outcome.
 \end{figure}
 
 \subsection{Analytical problem formulation}
-Crash severity is an ordered, five-level outcome, but its two extremes are very unbalanced (1.5\% fatal against
-32.0\% non-casualty). The preliminary model therefore uses a binary target that matches the policy target:
-\textbf{KSI}, which equals 1 if the crash was fatal or serious-injury (22.8\% of crashes). Predictors were
-limited to circumstances recorded at the scene, giving 16 categorical crash attributes and 7 crash-level
-flags from the TRAFFIC UNIT table. Injury counts were excluded because they define the target, and
-\emph{Street lighting} was excluded because of the leakage described above.
+\label{sec:formulation}
+
+\textbf{Unit of analysis.} Each observation is one police-reported crash (92,082 crashes from 2020 to 2024).
+The model asks: \emph{given that a crash has happened and been reported, how likely is it that someone was
+killed or seriously injured?} It does not predict whether a crash will happen, because the data contains no
+exposure measure such as traffic volume or kilometres travelled.
+
+\textbf{What is predicted (target).} Crash severity is an ordered, five-level outcome, but its extremes are very
+unbalanced (1.5\% fatal against 32.0\% non-casualty). The preliminary model therefore predicts a binary target
+that matches the policy target in the Road Safety Action Plan \parencite{tfnsw_actionplan}:
+\begin{equation}
+  y_i = \text{KSI}_i =
+  \begin{cases}
+    1 & \text{if \emph{Degree of crash -- detailed}} \in \{\text{Fatal},\ \text{Serious Injury}\}\\
+    0 & \text{if Moderate Injury, Minor/Other Injury or Non-casualty (tow-away)}
+  \end{cases}
+  \label{eq:target}
+\end{equation}
+Overall, 22.8\% of crashes are KSI (22.2\% in the training years and 25.1\% in the 2024 test year). The model
+outputs a probability $\hat{p}_i = P(y_i = 1 \mid \mathbf{x}_i)$, which is turned into a \enquote{high-risk / not
+high-risk} label with a threshold (Section~\ref{sec:validation}). The target is computed in
+\texttt{clean\_crash()} (Listing~\ref{lst:features}, line 23).
+
+\textbf{Predictors.} Predictors were restricted to circumstances that are known \emph{at the scene}, before
+anyone's injuries are assessed. This gives 23 predictors in total (Table~\ref{tab:predictors}): 16 categorical
+attributes taken directly from the CRASH table, and 7 crash-level variables derived from the TRAFFIC UNIT
+table by aggregating its 170,962 unit records to one row per crash (Listing~\ref{lst:features}, lines 33--46).
+For example, \texttt{has\_motorcycle} equals 1 if \emph{any} unit in the crash was a motorcycle.
+
+\begin{table}[H]
+\centering
+\caption{Predictors used in the models. \enquote{Levels} is the number of categories (categorical) or the share of
+crashes with the flag set to 1 (binary).}
+\label{tab:predictors}
+\footnotesize
+\begin{tabularx}{\textwidth}{@{}P{3.6cm}P{1.5cm}P{1.6cm}L@{}}
+\toprule
+\textbf{Predictor} & \textbf{Type} & \textbf{Levels} & \textbf{Examples / rationale} \\
+\midrule
+\multicolumn{4}{@{}l}{\emph{Road and location (CRASH table)}} \\
+Speed limit & Categorical & 12 & 50, 60, 100\,km/h; impact speed drives injury energy \\
+Urbanisation & Categorical & 6 & Sydney metro, country urban, country non-urban \\
+Road classification (admin) & Categorical & 3 & State, regional, local road \\
+Type of location & Categorical & 13 & 2-way undivided, T-junction, roundabout \\
+Alignment & Categorical & 3 & Straight, curved \\
+Road surface & Categorical & 3 & Sealed, unsealed \\
+School zone active & Categorical & 3 & Not a school zone, inactive, active \\
+Signals operation & Categorical & 4 & Signals on, off, none \\
+Other traffic control & Categorical & 17 & Give way, stop sign, pedestrian crossing \\
+\addlinespace
+\multicolumn{4}{@{}l}{\emph{Environment and time (CRASH table)}} \\
+Weather & Categorical & 7 & Fine, raining, fog \\
+Surface condition & Categorical & 4 & Dry, wet, snow/ice \\
+Natural lighting & Categorical & 5 & Daylight, darkness, dusk, dawn \\
+Two-hour intervals & Categorical & 13 & 16:00--17:59; captures traffic conditions \\
+Day of week & Categorical & 7 & Weekday against weekend travel \\
+\addlinespace
+\multicolumn{4}{@{}l}{\emph{Crash mechanism and vehicles (CRASH table)}} \\
+First impact type & Categorical & 11 & Head-on, rear end, vehicle--object, rollover \\
+Key TU type & Categorical & 36 & Car, SUV, motorcycle, semi-trailer (key unit in the crash) \\
+\addlinespace
+\multicolumn{4}{@{}l}{\emph{Derived from the TRAFFIC UNIT table}} \\
+No.\ of traffic units involved & Numeric & 1--26 & Single- against multi-vehicle crashes (mean 1.85) \\
+has\_pedestrian & Binary & 5.4\% & Unprotected road user involved \\
+has\_motorcycle & Binary & 11.7\% & Unprotected rider involved \\
+has\_pedal\_cycle & Binary & 4.1\% & Cyclist involved \\
+has\_heavy\_vehicle & Binary & 7.6\% & Heavy rigid truck, articulated truck or bus; mass disparity \\
+hit\_tree\_or\_pole & Binary & 10.2\% & Rigid roadside object struck \\
+has\_parked\_vehicle & Binary & 9.7\% & A parked (uncontrolled) vehicle involved \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\textbf{Variables deliberately excluded.} Several fields were left out because they would give the model
+information it could not have in practice, or because they add noise without adding signal
+(Table~\ref{tab:excluded}).
+
+\begin{table}[H]
+\centering
+\caption{Fields excluded from the predictors and the reason.}
+\label{tab:excluded}
+\footnotesize
+\begin{tabularx}{\textwidth}{@{}P{5.2cm}L@{}}
+\toprule
+\textbf{Field(s)} & \textbf{Reason for exclusion} \\
+\midrule
+No.\ killed, seriously, moderately and minor injured; Degree of crash & These define the target. Including them would let the model read the answer (target leakage; \cite{kaufman2012}). \\
+Street lighting & Completeness depends on the outcome (Section~\ref{sec:data}); it inflates ROC-AUC from 0.75 to 0.81 for the wrong reason. \\
+Crash ID, street, town, route no., identifying feature, coordinates & Identifiers or very high-cardinality location text; spatial questions are handled separately (Q3). \\
+Year, month, reporting year & Year defines the train/test split; month adds seasonality with little severity signal at this stage. \\
+RUM and DCA codes (86+ levels) & Detailed crash-type codes that largely duplicate \emph{First impact type}; kept for later work. \\
+Primary permanent / temporary / hazardous feature & 73--99\% blank (structural missingness); to be recoded first. \\
+LGA (130 levels), Conurbation & LGA is too granular for a first model; Conurbation duplicates Urbanisation. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Pre-processing}
+\label{sec:preprocessing}
+All pre-processing is wrapped inside scikit-learn \texttt{Pipeline} objects \parencite{pedregosa2011}, so every
+step is learned from the training years only and then applied unchanged to the test year.
+\begin{enumerate}
+  \item \textbf{Cleaning} (Listing~\ref{lst:features}, lines 18--30): keep crash years 2020--2024; derive KSI;
+        parse speed limits; treat coordinates outside NSW as missing.
+  \item \textbf{Aggregation and join}: compute the seven TRAFFIC UNIT flags per crash with a
+        \texttt{groupby(\enquote{Crash ID}).max()} and left-join them to CRASH (Listing~\ref{lst:features}, lines 33--52).
+  \item \textbf{Missing values}: blank categorical values become an explicit \texttt{\enquote{Missing}} level. Existing
+        \enquote{Unknown} codes are kept as their own level, so the model can still use them (Listing~\ref{lst:model}, line 50).
+  \item \textbf{Encoding}: for logistic regression, one-hot encoding with categories seen fewer than 50 times in
+        training grouped into a single \enquote{infrequent} column. This produces 128 input columns. For gradient
+        boosting, each category is mapped to an integer code and split natively as a category, with unseen
+        categories mapped to $-1$ (Listing~\ref{lst:model}, lines 55--68).
+  \item \textbf{Class weighting}: to stop the majority class from dominating, each class $k$ receives weight
+        $w_k = n / (2\,n_k)$. With 22.2\% KSI in training, a KSI crash counts about 2.25 times in the loss and a
+        non-KSI crash about 0.64 times \parencite{he2009}.
+\end{enumerate}
 
 \subsection{Models}
-\begin{itemize}
-  \item \textbf{Majority-class baseline}: always predicts \enquote{not KSI}, to anchor the metrics.
-  \item \textbf{Logistic regression} (L2-regularised, one-hot encoded, balanced class weights). This is the
-        standard interpretable model in crash-severity research \parencite{savolainen2011}; its coefficients
-        convert to odds ratios that stakeholders can read directly.
-  \item \textbf{Histogram gradient boosting} (native categorical handling, balanced class weights), a
-        tree ensemble in the gradient-boosting family \parencite{friedman2001} that uses LightGBM-style histogram
-        binning \parencite{ke2017}. It captures non-linear effects and interactions such as speed $\times$ region
-        without having to specify them.
-\end{itemize}
-Models were implemented with scikit-learn \parencite{pedregosa2011}, and data handling used pandas
-\parencite{mckinney2010}.
+\label{sec:models}
+Three models were fitted. Their hyperparameters are summarised in Table~\ref{tab:hyper}.
 
-\subsection{Validation design}
-A \textbf{temporal split} was used: models were trained on 2020--2023 (73,143 crashes) and tested on 2024
-(18,939 crashes). This mirrors the intended use, learning from past years to flag high-risk crash patterns in
-the next year, and it is stricter than a random split because it exposes the models to year-to-year drift.
-Because the classes are unbalanced, accuracy is not reported. Evaluation uses ROC-AUC, precision--recall AUC
-(which is more informative under class imbalance; \cite{saito2015}), KSI recall and precision, and the share of
-fatal crashes flagged as high risk \parencite{he2009}. Feature influence is assessed through odds ratios
-(logistic regression) and permutation importance (gradient boosting), measured as the drop in test ROC-AUC
-when a feature is shuffled \parencite{breiman2001}.
+\textbf{(a) Majority-class baseline.} This model ignores the predictors and assigns every crash the training KSI
+rate (22.2\%). It defines the floor any useful model must clear: ROC-AUC $=0.5$, and PR-AUC equal to the
+prevalence.
+
+\textbf{(b) Logistic regression.} This is the standard model for binary crash-severity outcomes
+\parencite{savolainen2011}. It models the log-odds of KSI as a linear function of the encoded predictors:
+\begin{equation}
+  \log\frac{\hat{p}_i}{1-\hat{p}_i} = \beta_0 + \sum_{j=1}^{128} \beta_j x_{ij},
+  \qquad \hat{p}_i = \frac{1}{1 + e^{-(\beta_0 + \boldsymbol{\beta}^\top \mathbf{x}_i)}}
+  \label{eq:logit}
+\end{equation}
+The coefficients are estimated by minimising the class-weighted log-loss plus an L2 (ridge) penalty, which
+shrinks unstable coefficients for rare categories towards zero:
+\begin{equation}
+  \min_{\boldsymbol{\beta}} \; -\sum_{i=1}^{n} w_{y_i}\left[y_i \log \hat{p}_i + (1-y_i)\log(1-\hat{p}_i)\right]
+  + \frac{1}{2C}\,\lVert\boldsymbol{\beta}\rVert_2^2 ,\qquad C = 0.5
+  \label{eq:lrloss}
+\end{equation}
+Each coefficient converts to an \textbf{odds ratio} $e^{\beta_j}$: the multiplicative change in the odds of KSI
+when that predictor is present, holding the others fixed. An odds ratio of 5.7 for \texttt{has\_motorcycle} means
+the odds of a KSI outcome are 5.7 times higher when a motorcycle is involved. Because every category level is
+encoded and the penalty shrinks coefficients, odds ratios are read as relative effects rather than comparisons
+against a single reference level. The solver (L-BFGS) converged in 92 iterations.
+
+\textbf{(c) Histogram gradient boosting.} Gradient boosting builds an additive ensemble of shallow regression
+trees, where each new tree $h_m$ is fitted to the gradient of the log-loss left by the trees before it
+\parencite{friedman2001}:
+\begin{equation}
+  F_M(\mathbf{x}) = F_0 + \eta \sum_{m=1}^{M} h_m(\mathbf{x}), \qquad \hat{p} = \frac{1}{1 + e^{-F_M(\mathbf{x})}}
+  \label{eq:gbm}
+\end{equation}
+Here $\eta = 0.05$ is the learning rate and each tree has at most 31 leaves. The \enquote{histogram} variant
+bins continuous values into at most 255 bins before searching for splits, as in LightGBM \parencite{ke2017}, and
+splits categorical predictors natively by grouping categories. Because each tree splits on several predictors in
+sequence, the model can learn interactions (for example, a motorcycle crash on a 100\,km/h curve) and
+non-linear effects without them being specified. Regularisation comes from the small learning rate, the leaf
+limit, an L2 penalty on leaf values, and \textbf{early stopping}. scikit-learn holds out 10\% of the
+\emph{training} rows and stops adding trees when the validation loss has not improved for 10 rounds. Training
+stopped after 105 of a maximum of 400 trees, which guards against overfitting.
+
+\begin{table}[H]
+\centering
+\caption{Model specifications and hyperparameters. Values were fixed in advance and not tuned on the test year.}
+\label{tab:hyper}
+\footnotesize
+\begin{tabularx}{\textwidth}{@{}P{3.4cm}LL@{}}
+\toprule
+ & \textbf{Logistic regression} & \textbf{Histogram gradient boosting} \\
+\midrule
+scikit-learn class & \texttt{LogisticRegression} & \texttt{HistGradientBoostingClassifier} \\
+Input encoding & One-hot, \texttt{min\_frequency=50} (128 columns) & Ordinal codes, native categorical splits \\
+Loss & Class-weighted log-loss & Class-weighted log-loss \\
+Regularisation & L2, $C = 0.5$ & \texttt{l2\_regularization=1.0}, \texttt{max\_leaf\_nodes=31} \\
+Learning & L-BFGS, \texttt{max\_iter=3000} (converged at 92) & $\eta = 0.05$, up to 400 trees (early-stopped at 105) \\
+Class imbalance & \texttt{class\_weight="balanced"} & \texttt{class\_weight="balanced"} \\
+Randomness & Deterministic & \texttt{random\_state=42} \\
+Interpretation & Odds ratios $e^{\beta_j}$ & Permutation importance \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Validation design: how a good model is identified}
+\label{sec:validation}
+
+\textbf{Temporal hold-out.} The intended use is to learn from past years and flag high-risk crash profiles in a
+new year. The validation therefore mimics that use: models are trained on 2020--2023 (73,143 crashes) and
+evaluated once on 2024 (18,939 crashes), a year they have never seen (Figure~\ref{fig:split}). An out-of-time test is
+stricter than a random split because it exposes the model to year-to-year drift. In 2024 the KSI rate rose to
+25.1\%, against 22.2\% in training. It also prevents crashes from the same period, with the same reporting
+practices, from appearing on both sides of the split \parencite{tashman2000}.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[yr/.style={draw=accent, thick, minimum width=2.2cm, minimum height=0.8cm, font=\small},
+                    x=2.3cm]
+  \foreach \y/\lab in {0/2020,1/2021,2/2022,3/2023}{
+    \node[yr, fill=accent!15] at (\y,0) {\lab};
+  }
+  \node[yr, fill=orange!25, draw=orange!80!black] at (4.25,0) {2024};
+  \draw[decorate, thick] (-0.48,0.6) -- (3.48,0.6) node[midway, above, font=\small, align=center]
+       {\textbf{Training} (2020--2023): 73,143 crashes, 22.2\% KSI\\used to fit encoders, models and early stopping};
+  \draw[thick] (3.77,0.6) -- (4.73,0.6) node[midway, above, font=\small, align=center] {\textbf{Test} (2024)\\18,939 crashes, 25.1\% KSI};
+  \draw[->, thick, gray] (-0.5,-0.7) -- (4.8,-0.7) node[right, font=\small] {time};
+\end{tikzpicture}
+\caption{Temporal validation design. All fitting (encoders, coefficients, trees, early stopping) uses 2020--2023 only; 2024 is scored once.}
+\label{fig:split}
+\end{figure}
+
+\textbf{Controls against optimistic results.}
+\begin{itemize}
+  \item \emph{No information from the test year} is used for fitting. Encoders and models sit in one pipeline fitted
+        on the training rows, and gradient boosting's early-stopping set is carved out of the training years.
+  \item \emph{Hyperparameters were fixed in advance} (Table~\ref{tab:hyper}) and not tuned against 2024, so the test score
+        is an honest estimate. Tuning will use the training years only (see below).
+  \item \emph{Leaky and target-defining fields are excluded} (Table~\ref{tab:excluded}). A comparison run that includes
+        \emph{Street lighting} is reported separately to show the size of the leakage effect.
+\end{itemize}
+
+\textbf{Evaluation metrics.} Because only about a quarter of crashes are KSI, accuracy would be misleading: the
+baseline that never predicts KSI is 75\% accurate in 2024 but useless. The metrics below are used instead
+\parencite{he2009,saito2015,fawcett2006}. Let TP, FP, TN and FN be the true/false positives and negatives when a
+crash is labelled high-risk if $\hat{p}_i \geq 0.5$.
+\begin{itemize}
+  \item \textbf{ROC-AUC} (discrimination): the probability that a randomly chosen KSI crash receives a higher
+        predicted risk than a randomly chosen non-KSI crash. 0.5 is random, 1.0 is perfect. It does not depend on
+        the threshold.
+  \item \textbf{PR-AUC} (average precision): the area under the precision--recall curve. Its random baseline equals
+        the KSI prevalence (0.251 in 2024), so it is more sensitive than ROC-AUC to performance on the minority
+        class \parencite{saito2015}.
+  \item \textbf{Recall (sensitivity)} $= \text{TP}/(\text{TP}+\text{FN})$: the share of actual KSI crashes the model
+        flags. For road safety, missing a severe crash is the costlier error, so recall is prioritised.
+  \item \textbf{Precision} $= \text{TP}/(\text{TP}+\text{FP})$: the share of flagged crashes that really were KSI,
+        which indicates how many resources would go to false alarms.
+  \item \textbf{Fatal crashes flagged}: recall measured on fatal crashes only, the outcome stakeholders care
+        most about.
+  \item \textbf{Calibration by risk decile}: crashes are sorted into ten equal groups by $\hat{p}$, and the mean
+        predicted risk is compared with the observed KSI rate in each group. A well-ranked model shows observed rates
+        rising steadily across deciles. A well-calibrated one has predicted and observed rates that match
+        \parencite{niculescu2005}.
+\end{itemize}
+The 0.5 threshold is applied to the class-weighted model's output, which places it roughly at the training
+prevalence. In practice the threshold can be moved to trade recall against precision, for example to fit an
+agency's inspection budget.
+
+\textbf{Criteria for a \enquote{good} model.} A model is judged suitable for this case study if it meets the criteria
+in Table~\ref{tab:criteria}. Together they cover performance, generalisation, stability and interpretability.
+Common rules of thumb treat a ROC-AUC of 0.7--0.8 as acceptable and 0.8--0.9 as excellent discrimination
+\parencite{hosmer2013}.
+
+\begin{table}[H]
+\centering
+\caption{Criteria used to identify a good model, with the evidence for the two candidate models (2024 test year unless stated).}
+\label{tab:criteria}
+\footnotesize
+\begin{tabularx}{\textwidth}{@{}P{3.0cm}P{3.6cm}LL@{}}
+\toprule
+\textbf{Criterion} & \textbf{Test} & \textbf{Logistic regression} & \textbf{Gradient boosting} \\
+\midrule
+Better than chance & ROC-AUC $> 0.5$; PR-AUC $>$ prevalence (0.251) & 0.742; 0.483 \checkmark & 0.749; 0.498 \checkmark \\
+Acceptable discrimination & ROC-AUC $\geq 0.7$ \parencite{hosmer2013} & \checkmark & \checkmark \\
+Catches severe crashes & High recall, especially on fatal crashes & 65\% KSI; 85\% fatal & 67\% KSI; 85\% fatal \\
+No overfitting & Small gap between train and test ROC-AUC & 0.742 vs 0.742 & 0.764 vs 0.749 \\
+Stable over time & Leave-one-year-out ROC-AUC within 2020--2023 & 0.730--0.748 & 0.734--0.754 \\
+Ranks risk usefully & Observed KSI rises across risk deciles & -- & 5.5\% $\rightarrow$ 60.7\% \\
+Calibrated probabilities & Predicted $\approx$ observed per decile & Not yet (class weighting) & Not yet (top decile 0.79 vs 0.61) \\
+Interpretable & Effects explainable to stakeholders & Odds ratios & Permutation importance only \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\textbf{Stability check.} To check that the 2024 result is not a one-off, each model was also re-fitted four times
+on the training years, each time holding out one year (2020, 2021, 2022 or 2023) and scoring it
+(Listing~\ref{lst:model}, lines 100--108). ROC-AUC stayed between 0.730 and 0.754 across held-out years for
+both models. The lowest score was for 2021, the COVID-affected year, and the 2024 test score lies inside this
+range, so performance is consistent over time. The next stage will use this same leave-one-year-out scheme on
+the training years to tune hyperparameters and the decision threshold, keeping 2024 untouched.
+
+\textbf{How feature influence is measured.} For logistic regression, influence is read from the odds ratios
+(Equation~\ref{eq:logit}). For gradient boosting, which has no coefficients, \textbf{permutation importance} is used
+\parencite{breiman2001}: each predictor's values are randomly shuffled in the 2024 data, five times, and the
+average drop in ROC-AUC is recorded. A large drop means the model relies on that predictor (Listing~\ref{lst:model},
+line 146).
 
 \subsection{Suitability for the case study}
 \begin{itemize}
@@ -588,5 +850,26 @@ clearly and give consistent, policy-relevant drivers. The next stage will:
 % =================================================================
 \newpage
 \printbibliography[heading=bibintoc,title={References}]
+
+% =================================================================
+\newpage
+\appendix
+\section{Code evidence}
+\label{app:code}
+The listings below are the exact source files that produced every number in Sections~\ref{sec:model}
+and~\ref{sec:prelim}. They are included directly from the project repository
+(\url{https://github.com/QuangThanhDS/nsw-road-crash-analytics}, folder \texttt{src/}). The pipeline runs in the order
+\texttt{load\_data.py} $\rightarrow$ \texttt{features.py} (imported) $\rightarrow$ \texttt{model.py}.
+
+\lstinputlisting[caption={\texttt{src/features.py}: cleaning, target definition (line 23) and TRAFFIC UNIT flags (lines 33--46).},
+                 label={lst:features}]{../../src/features.py}
+
+\lstinputlisting[caption={\texttt{src/model.py}: predictors (lines 32--45), temporal split (line 51), pipelines and
+                 hyperparameters (lines 55--68), metrics (lines 70--84), diagnostics and leave-one-year-out check
+                 (lines 86--110), permutation importance (line 146).},
+                 label={lst:model}]{../../src/model.py}
+
+\lstinputlisting[caption={\texttt{src/load\_data.py}: conversion of the TfNSW workbooks to CSV.},
+                 label={lst:load}]{../../src/load_data.py}
 
 \end{document}
