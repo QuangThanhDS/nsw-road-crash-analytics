@@ -1,0 +1,592 @@
+% =================================================================
+%  NSW Road Crash Analytics — Preliminary Report (INFT6201)
+%  Compile: pdflatex -> biber -> pdflatex -> pdflatex  (or latexmk -pdf)
+% =================================================================
+\documentclass[11pt,a4paper]{article}
+
+% ---------- Packages ----------
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage[a4paper,margin=2.5cm]{geometry}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{float}
+\usepackage[font=small,labelfont=bf]{caption}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage{tikz}
+\usetikzlibrary{positioning,shapes.multipart}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+\usepackage[english]{babel}
+\usepackage{csquotes}
+\usepackage[style=apa,backend=biber]{biblatex}
+\addbibresource{references.bib}
+\usepackage[hidelinks]{hyperref}
+
+\graphicspath{{../figures/}}
+
+% ---------- Styling ----------
+\definecolor{accent}{HTML}{1C5CAB}
+\titleformat{\section}{\Large\bfseries\color{accent}}{\thesection}{0.8em}{}
+\titleformat{\subsection}{\large\bfseries}{\thesubsection}{0.8em}{}
+\setlength{\parskip}{0.5em}
+\setlength{\parindent}{0pt}
+\setlist{itemsep=0.2em,topsep=0.3em}
+\newcolumntype{L}{>{\raggedright\arraybackslash}X}
+\newcolumntype{P}[1]{>{\raggedright\arraybackslash}p{#1}}
+\newcolumntype{R}{>{\raggedleft\arraybackslash}X}
+
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{\small NSW Road Crash Analytics}
+\rhead{\small INFT6201 Project Report}
+\cfoot{\small\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+% =================================================================
+\begin{document}
+
+% ---------- Title page ----------
+\begin{titlepage}
+  \centering
+  \vspace*{3cm}
+  {\Large\color{accent} INFT6201 --- Data Science Project\par}
+  \vspace{1.2cm}
+  {\Huge\bfseries Who Gets Hurt, Where and Why?\par}
+  \vspace{0.4cm}
+  {\Large Severity analytics on New South Wales road crash data, 2020--2024\par}
+  \vspace{2cm}
+  {\large Quang Thanh Dong\par}
+  {\large Student ID: [your student number]\par}
+  \vspace{0.6cm}
+  {\large Master of Information Technology, Trimester 3, 2026\par}
+  \vfill
+  {\small Code and reproducible outputs: \url{https://github.com/QuangThanhDS/nsw-road-crash-analytics}\par}
+  \vspace{0.5cm}
+  {\small \today\par}
+\end{titlepage}
+
+% ---------- Executive summary ----------
+\section*{Executive summary}
+\addcontentsline{toc}{section}{Executive summary}
+
+New South Wales (NSW) recorded 340 road deaths in 2024, and the State's 2026 Road Safety Action Plan
+commits to halving deaths and cutting serious injuries by 30\% by 2030
+\parencite{tfnsw_actionplan,tfnsw_toll2024}. This report uses the Transport for NSW open crash data
+for 2020--2024 \parencite{tfnsw_crashdata}, which covers 92,082 police-reported crashes and 1,507 deaths, to ask
+which crash circumstances turn a crash into a fatal or serious one, and where those crashes happen.
+
+Three findings stand out from the preliminary analysis:
+\begin{itemize}
+  \item \textbf{Regional rural roads carry a disproportionate share of trauma.} They account for 12.7\% of
+        crashes but 39.2\% of deaths. At the same posted speed limit, a crash outside Greater
+        Sydney--Newcastle--Wollongong is roughly two to four times more likely to be fatal (5.0\% vs 1.4\% at 100\,km/h).
+  \item \textbf{Who is involved matters more than when or in what weather.} Crashes involving a motorcycle,
+        pedestrian or cyclist, or a collision with a tree or pole, carry the highest odds of a killed or
+        seriously injured (KSI) outcome. Weather and day of week add almost nothing.
+  \item \textbf{Data quality can mislead a model.} The \emph{Street lighting} field is left
+        \enquote{unknown} far more often for minor crashes than for fatal ones, which leaks the outcome into the
+        model. Removing it lowers the apparent ROC-AUC from 0.81 to a more honest 0.75.
+\end{itemize}
+
+A temporally validated gradient-boosting model ranks 2024 crashes well (the top risk decile has a 61\% KSI
+rate against 5.5\% in the bottom decile), and an interpretable logistic regression performs almost as well.
+That makes logistic regression the better fit for public-sector stakeholders who need to explain their
+decisions.
+
+\tableofcontents
+\newpage
+
+% =================================================================
+\section{Case study}
+\label{sec:case}
+
+\subsection{Context}
+Road trauma is a leading cause of preventable death worldwide \parencite{who_2023}. In NSW, more than two-thirds
+of road deaths occur on country roads, even though country residents make up about one-third of the
+population \parencite{tfnsw_actionplan}. The 2026 Road Safety Action Plan sets targets of a 50\% reduction in
+deaths and a 30\% reduction in serious injuries from the 2018--2020 baseline by 2030 \parencite{tfnsw_actionplan}.
+Meeting these targets needs evidence on \emph{which} crashes become severe, so that limited
+infrastructure, enforcement and education budgets can go where they prevent the most trauma.
+
+\subsection{Application examples}
+The analysis is designed to support decisions such as:
+\begin{itemize}
+  \item \textbf{Safer-roads investment:} prioritising route segments with clusters of severe run-off-road and
+        head-on crashes for barriers, rumble strips or tree and pole treatments.
+  \item \textbf{Vulnerable road user programs:} targeting motorcycle, pedestrian and cyclist safety where
+        these users make up a large share of KSI crashes.
+  \item \textbf{Enforcement and patrol scheduling:} aligning police resources with the times and places where
+        crashes are most likely to be severe, not just most frequent.
+  \item \textbf{Speed-zone review:} using severity differences across speed limits and regions to inform
+        reviews of 80--110\,km/h rural zones.
+\end{itemize}
+
+\subsection{Data science questions}
+\begin{enumerate}[label=\textbf{Q\arabic*.}]
+  \item \textbf{Severity factors:} Which road, environment and road-user characteristics are associated with a
+        reported crash being fatal or serious (KSI), and how well can they predict it?
+  \item \textbf{Regional gap:} Why are regional crashes more severe than metropolitan ones, and does the gap
+        persist after accounting for speed limit and crash type?
+  \item \textbf{Hotspots:} Where are crashes and severe crashes concentrated, and which local government areas
+        (LGAs) carry the largest burden?
+  \item \textbf{Temporal patterns:} How do volume and severity vary by year (including the COVID-19 period),
+        day of week and time of day?
+\end{enumerate}
+This preliminary report answers Q1 with initial models and gives descriptive evidence for Q2--Q4.
+
+\subsection{Stakeholders}
+Table~\ref{tab:stakeholders} lists the main stakeholders and how each would use the results.
+
+\begin{table}[H]
+\centering
+\caption{Key stakeholders and their interest in the analysis.}
+\label{tab:stakeholders}
+\small
+\begin{tabularx}{\textwidth}{@{}P{4.2cm}L@{}}
+\toprule
+\textbf{Stakeholder} & \textbf{Interest and use of results} \\
+\midrule
+Transport for NSW, Centre for Road Safety & Data custodian and policy owner; program targeting, progress against 2030 targets \\
+Local councils & Local road treatments, 40\,km/h zones, LGA-level benchmarking \\
+NSW Police Force & Timing and location of enforcement (e.g.\ weekend mornings, regional highways) \\
+NSW Health and emergency services & Regional trauma response times and hospital demand \\
+Insurers (icare, CTP insurers) & Injury burden and claims risk \\
+Road user advocacy groups & Evidence for motorcycle, cycling and pedestrian safety \\
+General public & Transparent communication of risk \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+% =================================================================
+\section{Datasets}
+\label{sec:data}
+
+\subsection{Background}
+The primary source is the \emph{NSW Road Crash Data 2020--2024} release published by Transport for NSW on its
+Open Data Hub under a Creative Commons Attribution licence \parencite{tfnsw_crashdata}. The release is
+updated annually as a rolling five-year window; the 2020--2024 release (updated 9 October 2025) is the
+most recent available. It contains crashes that meet national reporting criteria: the crash was reported to
+police, occurred on a public road, involved at least one moving vehicle, and resulted in a death, an injury
+or a vehicle being towed away \parencite{tfnsw_manual}.
+
+The data comes as two linked tables (Table~\ref{tab:datasets}). The \emph{Data Manual} defines every field
+\parencite{tfnsw_manual}. Severity levels below \enquote{fatal} come from linking police reports with health
+records: a \emph{serious injury} crash is one where at least one person was matched to a hospital admission on
+the day of the crash or the day after, while a \emph{moderate injury} is matched only to an emergency department
+attendance. Fatalities are deaths within 30 days of the crash.
+
+To map the data, simplified Australian Statistical Geography Standard (ASGS) Edition 3 boundaries for the
+state, Greater Sydney and 2024 LGAs were used \parencite{abs_asgs}. They were obtained in converted form
+from the \texttt{nswgeo} package \parencite{suster_nswgeo}.
+
+\begin{table}[H]
+\centering
+\caption{Datasets used in the analysis.}
+\label{tab:datasets}
+\small
+\begin{tabularx}{\textwidth}{@{}P{3.4cm}P{2.3cm}L@{}}
+\toprule
+\textbf{Table} & \textbf{Size} & \textbf{Content} \\
+\midrule
+CRASH & 92,189 rows $\times$ 50 columns & One row per crash: year, month, weekday, two-hour time band, location (coordinates,
+LGA, suburb, street), road and environment (speed limit, alignment, surface, weather, lighting), crash type
+(RUM/DCA codes, first impact type), key vehicle type, and counts of people killed and injured by severity. \\
+TRAFFIC UNIT & 170,962 rows $\times$ 10 columns & One row per traffic unit (vehicle, pedestrian, cyclist): unit type, role in first impact,
+direction, manoeuvre and objects hit. Linked to CRASH by \texttt{Crash ID} (one-to-many). \\
+ASGS boundaries & 1 state, 1 GCCSA, 129 LGAs & Polygon boundaries (GDA2020) used for mapping. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Data quality issues}
+A systematic profile of all 50 CRASH fields (missing values, \enquote{unknown}-coded values, cardinality and
+range checks) and a referential-integrity check between tables found the issues summarised in
+Table~\ref{tab:dq}. The structure of the data is clean: there are no duplicate crash IDs and no orphan traffic
+units, and every crash has at least one unit. The problems lie in \emph{what was recorded and how}.
+
+\begin{table}[H]
+\centering
+\caption{Data quality issues identified and how they were handled.}
+\label{tab:dq}
+\small
+\begin{tabularx}{\textwidth}{@{}P{3.2cm}LP{4.2cm}@{}}
+\toprule
+\textbf{Issue} & \textbf{Evidence} & \textbf{Handling} \\
+\midrule
+Outcome-dependent recording (target leakage) &
+\emph{Street lighting} is \enquote{Unknown / not stated} for 36.5\% of crashes overall, but for 62.8\% of
+tow-away and 52.9\% of minor-injury crashes compared with 0.6\% of fatal ones. The KSI rate is 3.6\% when the field
+is unknown and 26--38\% otherwise. &
+Excluded from the main model; a comparison run quantifies the leakage (Section~\ref{sec:prelim}). \\
+\addlinespace
+Structural missingness &
+\emph{Primary temporary / hazardous / permanent feature} are 98.5\%, 98.0\% and 73.0\% blank; \emph{Other TU type}
+is 30.4\% blank (single-vehicle crashes). A blank means \enquote{none}, not \enquote{unknown}. &
+Not used yet; to be recoded as \enquote{None}. \\
+\addlinespace
+Coverage and under-reporting &
+Only police-reported injury or tow-away crashes are included; minor crashes without a tow-away are absent. &
+Results describe severity \emph{given} a reported crash, not crash risk per trip. \\
+\addlinespace
+Late reporting &
+107 crashes from 2019 appear in reporting year 2020, and 63--167 crashes each year are reported in the
+following year. &
+Analysis uses \emph{Year of crash} and keeps 2020--2024 only (92,082 crashes). \\
+\addlinespace
+Consistency with official totals &
+Deaths in the data match the official 2023 toll (340) exactly, but 2024 shows 327 against an official 340
+\parencite{tfnsw_toll2024}. &
+Noted; 2024 counts may be revised in later releases. \\
+\addlinespace
+Definitional overlap &
+\emph{Urbanisation} is itself derived from LGA and speed limit (country urban $\leq$80\,km/h, non-urban
+$>$80\,km/h; \cite{tfnsw_manual}). &
+Regions are compared as metro vs rest of NSW \emph{within} speed limits. \\
+\addlinespace
+Coarse time and privacy limits &
+Time is given only as two-hour bands, month and weekday. No driver age, licence, speeding, alcohol or
+restraint fields are released. &
+Time treated as categorical; human factors listed as a limitation. \\
+\addlinespace
+Spatial outliers &
+Five crashes at 159\textdegree E look anomalous but are on Lord Howe Island (part of NSW). &
+Kept; excluded only from the mainland map. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+The first issue is the most consequential. Police record crash circumstances in more detail when someone is
+badly hurt. As a result, whether a field was \emph{filled in} carries information about the outcome, which is
+a classic form of leakage \parencite{kaufman2012}. Smaller \enquote{unknown} categories in \emph{Natural lighting}
+and \emph{Key TU type} (each under 2.5\% of crashes) show the same pattern and are flagged for treatment in
+the next stage.
+
+% =================================================================
+\section{Data modelling}
+\label{sec:model}
+
+\subsection{Conceptual data model}
+The two source tables form a one-to-many relational model (Figure~\ref{fig:erd}). For analysis, the
+TRAFFIC UNIT table was aggregated to the crash level as binary flags (for example \emph{any pedestrian
+involved}, \emph{any motorcycle involved}, \emph{tree or pole hit}) and joined to CRASH. This gives one row per
+crash, which matches the unit of the severity outcome.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  entity/.style={rectangle split, rectangle split parts=2, draw=accent, thick, rounded corners=2pt,
+                 text width=5.2cm, font=\small, align=left, rectangle split part fill={accent!12,white}},
+  node distance=1.6cm]
+  \node[entity] (crash) {\textbf{CRASH} (92,189)
+    \nodepart{second}\texttt{Crash ID} (PK)\\
+    Time: year, month, weekday, 2-h band\\
+    Place: lat/long, LGA, urbanisation\\
+    Road: speed limit, alignment, surface\\
+    Environment: weather, lighting\\
+    Crash type: RUM, DCA, first impact\\
+    Outcome: degree of crash, no.\ killed/injured};
+  \node[entity, right=of crash] (tu) {\textbf{TRAFFIC UNIT} (170,962)
+    \nodepart{second}\texttt{Crash ID} (FK), \texttt{Traffic unit ID}\\
+    TU type group (car, motorcycle, pedestrian, \ldots)\\
+    Role in first impact\\
+    Manoeuvre, direction of travel\\
+    Object hit 1, Object hit 2};
+  \draw[thick, accent] (crash.east) -- node[above, font=\small]{1 \quad : \quad N} (tu.west);
+\end{tikzpicture}
+\caption{Relational model of the TfNSW crash data. Traffic units are aggregated to crash-level flags before modelling.}
+\label{fig:erd}
+\end{figure}
+
+\subsection{Analytical problem formulation}
+Crash severity is an ordered, five-level outcome, but its two extremes are very unbalanced (1.5\% fatal against
+32.0\% non-casualty). The preliminary model therefore uses a binary target that matches the policy target:
+\textbf{KSI}, which equals 1 if the crash was fatal or serious-injury (22.8\% of crashes). Predictors were
+limited to circumstances recorded at the scene, giving 16 categorical crash attributes and 7 crash-level
+flags from the TRAFFIC UNIT table. Injury counts were excluded because they define the target, and
+\emph{Street lighting} was excluded because of the leakage described above.
+
+\subsection{Models}
+\begin{itemize}
+  \item \textbf{Majority-class baseline}: always predicts \enquote{not KSI}, to anchor the metrics.
+  \item \textbf{Logistic regression} (L2-regularised, one-hot encoded, balanced class weights). This is the
+        standard interpretable model in crash-severity research \parencite{savolainen2011}; its coefficients
+        convert to odds ratios that stakeholders can read directly.
+  \item \textbf{Histogram gradient boosting} (native categorical handling, balanced class weights), a
+        tree ensemble in the gradient-boosting family \parencite{friedman2001} that uses LightGBM-style histogram
+        binning \parencite{ke2017}. It captures non-linear effects and interactions such as speed $\times$ region
+        without having to specify them.
+\end{itemize}
+Models were implemented with scikit-learn \parencite{pedregosa2011}, and data handling used pandas
+\parencite{mckinney2010}.
+
+\subsection{Validation design}
+A \textbf{temporal split} was used: models were trained on 2020--2023 (73,143 crashes) and tested on 2024
+(18,939 crashes). This mirrors the intended use, learning from past years to flag high-risk crash patterns in
+the next year, and it is stricter than a random split because it exposes the models to year-to-year drift.
+Because the classes are unbalanced, accuracy is not reported. Evaluation uses ROC-AUC, precision--recall AUC
+(which is more informative under class imbalance; \cite{saito2015}), KSI recall and precision, and the share of
+fatal crashes flagged as high risk \parencite{he2009}. Feature influence is assessed through odds ratios
+(logistic regression) and permutation importance (gradient boosting), measured as the drop in test ROC-AUC
+when a feature is shuffled \parencite{breiman2001}.
+
+\subsection{Suitability for the case study}
+\begin{itemize}
+  \item \textbf{Logistic regression} is the most suitable \emph{primary} model for this case study. The
+        stakeholders are public agencies that must justify their investment decisions, and odds ratios
+        translate directly into program priorities. It performs only 0.007 AUC below gradient boosting
+        (Section~\ref{sec:prelim}).
+  \item \textbf{Gradient boosting} works best as a \emph{check} on the logistic model. Its small gain suggests
+        that severity is driven mostly by additive main effects in this feature set. Its importance ranking
+        independently confirms the logistic model's drivers.
+  \item \textbf{Limitations of both:} predicted probabilities are inflated by class weighting and need
+        recalibration before they are reported as risks \parencite{niculescu2005}. Neither model accounts for
+        the unobserved heterogeneity that the accident-research literature stresses. Ordered and random-parameters
+        models are the natural extension for the full five-level severity scale
+        \parencite{savolainen2011,mannering2014}.
+  \item \textbf{Spatial models} (density-based clustering of KSI crashes) are better suited than classifiers to
+        Q3 and are planned for the next stage.
+\end{itemize}
+
+% =================================================================
+\section{Data visualisation and communication of results}
+\label{sec:viz}
+
+Each visual was chosen to answer one question for one audience, and all were produced with Matplotlib
+\parencite{hunter2007} using a single consistent design system. Table~\ref{tab:viz} maps each visual to its
+question and audience.
+
+\begin{table}[H]
+\centering
+\caption{Visualisations, the questions they answer and their intended audience.}
+\label{tab:viz}
+\small
+\begin{tabularx}{\textwidth}{@{}P{4.3cm}P{1.3cm}LP{3.1cm}@{}}
+\toprule
+\textbf{Visual (technique)} & \textbf{Q} & \textbf{Purpose} & \textbf{Audience} \\
+\midrule
+Severity bar chart (Fig.~\ref{fig:severity}) & -- & Class balance; justifies the KSI target & Analysts \\
+Yearly trend lines (Fig.~\ref{fig:trend}) & Q4 & COVID dip and post-2022 rise & TfNSW, public \\
+Day $\times$ time heatmaps (Fig.~\ref{fig:heatmap}) & Q4 & Volume against severity by time & Police \\
+Speed limit $\times$ region lines (Fig.~\ref{fig:speed}) & Q2 & Regional gap at equal speed & TfNSW, councils \\
+Impact-type bar chart (Fig.~\ref{fig:impact}) & Q1 & Severity by crash mechanism & All \\
+Hexbin maps (Fig.~\ref{fig:map}) & Q3 & Where crashes and severe crashes are & Councils, TfNSW \\
+ROC/PR curves (Fig.~\ref{fig:roc}) & Q1 & Model performance & Analysts \\
+Odds ratios and importance (Figs.~\ref{fig:odds}, \ref{fig:perm}) & Q1 & Drivers of severity & Policy makers \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Key design choices:
+\begin{itemize}
+  \item \textbf{Rates alongside counts.} Volume and severity often point in different directions. The heatmaps
+        (Fig.~\ref{fig:heatmap}) and maps (Fig.~\ref{fig:map}) pair a count view with a KSI-share view, so that
+        \enquote{where crashes are common} is not mistaken for \enquote{where crashes are dangerous}.
+  \item \textbf{Hexagonal binning for 92,000 points.} Plotting each crash as a point would create heavy overplotting
+        along the coast. Hexbins aggregate points into equal-area cells \parencite{carr1987}. A logarithmic
+        colour scale keeps sparse regional cells visible next to Sydney cells with thousands of crashes. Cells
+        with fewer than 15 crashes are hidden on the KSI-share map to avoid unstable rates.
+  \item \textbf{Geographic context.} ABS state, Greater Sydney and LGA boundaries \parencite{abs_asgs}, plus labelled
+        markers for Sydney, Newcastle and Wollongong, let non-technical readers orient themselves.
+  \item \textbf{Accessible colour.} Single-hue sequential scales encode magnitude. Categorical series use a
+        palette checked for colour-vision-deficiency separation, and series are also labelled directly or with a
+        legend, so colour is never the only cue.
+  \item \textbf{Small-sample suppression and annotation.} Groups with fewer than 100 crashes are hidden in the
+        speed chart, and bar charts are annotated with sample sizes.
+  \item \textbf{Models explained in policy terms.} Odds ratios are shown on a log scale centred at 1, so effects
+        that raise and lower risk appear symmetrically.
+\end{itemize}
+
+% =================================================================
+\section{Preliminary results}
+\label{sec:prelim}
+
+\subsection{Data characterisation and distributions}
+
+\textbf{Severity.} Of the 92,082 crashes from 2020 to 2024, 32.0\% were non-casualty tow-aways, 28.4\% moderate
+injury, 16.8\% minor injury, 21.3\% serious injury and 1.5\% fatal (1,388 crashes, 1,507 deaths;
+Figure~\ref{fig:severity}). The KSI target therefore has a prevalence of 22.8\%. Most crashes involve two
+traffic units (59\%), and 29\% are single-vehicle crashes.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.72\textwidth]{01_severity_distribution.png}
+\caption{Distribution of crashes by severity, NSW 2020--2024.}
+\label{fig:severity}
+\end{figure}
+
+\textbf{Trend.} Fatal crashes held at around 260 a year in 2020--2022 and rose to around 300 in 2023--2024.
+Serious-injury crashes fell in 2021, during COVID-19 lockdowns, and then rose 37\% to 4,459 in 2024, while
+moderate, minor and tow-away crashes stayed flat (Figure~\ref{fig:trend}). Severe crashes are therefore
+increasing, not crashes overall, which moves NSW away from its 2030 targets.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{02_yearly_trend.png}
+\caption{Crashes per year by severity (left) and fatal crashes per year (right).}
+\label{fig:trend}
+\end{figure}
+
+\textbf{Time of day and week.} Crash volume peaks on weekday afternoons; Friday 16:00--17:59 is the busiest
+slot, with 2,304 crashes. Severity follows a different pattern: the highest KSI shares occur on
+\emph{weekend mornings}, reaching 31\% on Sunday 10:00--11:59 and 29\% on Sunday 08:00--09:59, against about
+20\% in the weekday peak (Figure~\ref{fig:heatmap}). Congested peak traffic produces many low-speed crashes,
+while lighter weekend traffic, often on recreational and regional routes, produces fewer but more severe ones.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.95\textwidth]{03_time_heatmaps.png}
+\caption{Crash counts (top) and share of crashes that are fatal or serious (bottom) by day and two-hour interval.}
+\label{fig:heatmap}
+\end{figure}
+
+\textbf{Regional gap (Q2).} Table~\ref{tab:region} shows that regional rural NSW has 12.7\% of crashes but 39.2\%
+of deaths, with a fatal-crash rate five times that of the metropolitan conurbation. This matches TfNSW's statement
+that more than two-thirds of deaths occur on country roads \parencite{tfnsw_actionplan}. Even at the same speed
+limit, crashes outside the conurbation are more severe (Figure~\ref{fig:speed}): at 100\,km/h, 5.0\% are fatal
+against 1.4\% in the metro areas, and at 80\,km/h, 3.4\% against 1.6\%. Crash mechanism contributes to the gap:
+74.8\% of rural crashes are single-vehicle crashes (metro: 18.2\%), and 45.1\% are vehicle--object impacts
+(metro: 14.1\%).
+
+\begin{table}[H]
+\centering
+\caption{Crashes, deaths and severity by region, 2020--2024.}
+\label{tab:region}
+\small
+\begin{tabularx}{\textwidth}{@{}P{5.6cm}RRRRR@{}}
+\toprule
+\textbf{Region} & \textbf{Crashes} & \textbf{Share of crashes} & \textbf{Deaths} & \textbf{Share of deaths} & \textbf{Fatal rate} \\
+\midrule
+Greater Sydney / Newcastle / Wollongong & 62,551 & 67.9\% & 580 & 38.5\% & 0.9\% \\
+Regional urban & 17,821 & 19.4\% & 337 & 22.4\% & 1.7\% \\
+Regional rural & 11,690 & 12.7\% & 590 & 39.2\% & 4.5\% \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{04_severity_by_speed_region.png}
+\caption{KSI share (left) and fatal share (right) by speed limit, metropolitan conurbation against the rest of NSW.}
+\label{fig:speed}
+\end{figure}
+
+\textbf{Crash mechanism.} Pedestrian (47\% KSI), person--object (46\%), head-on (39\%) and rollover (32\%) crashes
+are the most severe, and rear-end crashes the least (13\%; Figure~\ref{fig:impact}). Head-on crashes have the highest
+fatal share, at 6.4\%.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.72\textwidth]{05_ksi_by_impact_type.png}
+\caption{Share of crashes that are fatal or serious, by first impact type (types with at least 100 crashes).}
+\label{fig:impact}
+\end{figure}
+
+\textbf{Spatial distribution (Q3).} Crashes follow the population and the highway network, with the densest
+cells in Sydney and along the Pacific, Hume and New England corridors (Figure~\ref{fig:map}, left). Within Greater
+Sydney, KSI shares appear higher on the urban fringe and along major arterials than in the dense inner
+suburbs (Figure~\ref{fig:map}, right). By count, the LGAs with the most KSI crashes are Central Coast (1,068),
+Canterbury-Bankstown (990) and Blacktown (823).
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{06_crash_map.png}
+\caption{Crash density across NSW, log scale (left), and KSI share within Greater Sydney (right). Boundaries: ABS ASGS Edition 3.}
+\label{fig:map}
+\end{figure}
+
+\subsection{Initial modelling results}
+
+Table~\ref{tab:results} reports test-set performance on 2024 crashes. Both models clearly outperform the baseline.
+Gradient boosting achieves a ROC-AUC of 0.749 and a PR-AUC of 0.498, double the 0.251 that random ranking would
+give. Logistic regression is within 0.007 AUC. At the default threshold, the models identify about two-thirds of
+KSI crashes and 85\% of fatal crashes. The ROC and PR curves almost coincide (Figure~\ref{fig:roc}).
+
+\begin{table}[H]
+\centering
+\caption{Model performance on the 2024 test set (18,939 crashes, 25.1\% KSI).}
+\label{tab:results}
+\small
+\begin{tabularx}{\textwidth}{@{}P{5.4cm}RRRRR@{}}
+\toprule
+\textbf{Model} & \textbf{ROC-AUC} & \textbf{PR-AUC} & \textbf{KSI recall} & \textbf{KSI precision} & \textbf{Fatal crashes flagged} \\
+\midrule
+Majority-class baseline & 0.500 & 0.251 & 0.00 & -- & 0\% \\
+Logistic regression & 0.742 & 0.483 & 0.65 & 0.44 & 85\% \\
+Gradient boosting & \textbf{0.749} & \textbf{0.498} & 0.67 & 0.43 & 85\% \\
+\midrule
+\emph{Gradient boosting incl.\ Street lighting (leaky)} & \emph{0.809} & \emph{0.553} & \emph{0.81} & \emph{0.45} & \emph{95\%} \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{07_model_roc_pr.png}
+\caption{ROC (left) and precision--recall (right) curves on the 2024 test set.}
+\label{fig:roc}
+\end{figure}
+
+\textbf{Risk ranking.} When 2024 crashes are sorted into deciles by predicted risk, the actual KSI rate rises
+steadily from 5.5\% in the lowest decile to 60.7\% in the highest, an eleven-fold spread. However, the top decile's
+mean predicted probability is 0.79, which confirms the over-estimation expected from class weighting and the need
+for recalibration.
+
+\textbf{Leakage check.} Adding \emph{Street lighting} raises ROC-AUC to 0.809 and fatal-crash recall to 95\%
+(Table~\ref{tab:results}, last row). In that run, \emph{Street lighting} becomes by far the most important feature,
+which only makes sense as a recording artefact. This demonstrates how the data-quality issue in
+Section~\ref{sec:data} would inflate apparent performance, and why the leaky feature was removed.
+
+\textbf{Drivers of severity (Q1).} The two models agree on the main drivers (Figures~\ref{fig:odds} and~\ref{fig:perm}):
+\begin{itemize}
+  \item \textbf{Motorcycle involvement} is the strongest factor (odds ratio $\approx$5.7; largest permutation
+        importance). 49\% of motorcycle crashes are KSI, compared with 19\% of other crashes.
+  \item \textbf{Vulnerable road users}: pedestrian ($\approx$4.4), cyclist ($\approx$4.3) and person--object
+        ($\approx$4.4) involvement, and motorised mobility scooters ($\approx$7.2, though based on few cases).
+  \item \textbf{Roadside objects and crash mechanism}: hitting a tree or pole ($\approx$2.5), head-on impact
+        ($\approx$2.0) and heavy-vehicle involvement ($\approx$1.8).
+  \item \textbf{Speed environment}: 100--110\,km/h zones ($\approx$1.5--1.7). Rear-end crashes ($\approx$0.46), animal
+        strikes ($\approx$0.42) and 40\,km/h zones ($\approx$0.53) are associated with lower severity.
+  \item Weather, day of week and school-zone status contribute almost nothing once these factors are known.
+\end{itemize}
+Remaining \enquote{unknown} categories (for example \emph{Natural lighting: Unknown}, odds ratio $\approx$0.17) show
+the same recording effect and will be handled in the next stage. These are associations and should not be read as
+causal effects.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.78\textwidth]{08_logreg_odds_ratios.png}
+\caption{Strongest logistic-regression odds ratios for a KSI outcome (log scale).}
+\label{fig:odds}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.78\textwidth]{09_gb_permutation_importance.png}
+\caption{Gradient-boosting permutation importance (drop in test ROC-AUC when a feature is shuffled).}
+\label{fig:perm}
+\end{figure}
+
+\subsection{Interpretation and next steps}
+A ROC-AUC of about 0.75 is moderate, and the ceiling reflects the data rather than the model: the main
+determinants of injury severity, such as travel speed, restraint use, impairment, occupant age and vehicle
+safety rating, are not in the open release. Even so, the models separate low- and high-risk crash profiles
+clearly and give consistent, policy-relevant drivers. The next stage will:
+\begin{enumerate}
+  \item recode structural blanks, treat the remaining \enquote{unknown} levels, and recalibrate probabilities;
+  \item add ABS population data to compare LGAs by per-capita KSI rate (Q3);
+  \item model the regional gap directly, controlling for speed, mechanism and vehicle mix (Q2);
+  \item apply density-based clustering to KSI crash locations to identify hotspots (Q3);
+  \item extend to the full ordered severity scale and a fatal-only model, and check stability with rolling-year validation.
+\end{enumerate}
+
+% =================================================================
+\newpage
+\printbibliography[heading=bibintoc,title={References}]
+
+\end{document}
