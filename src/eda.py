@@ -127,20 +127,56 @@ ax.set_title("Fatal or serious share by first impact type"); ax.set_xlabel("% of
 save(fig, "05_ksi_by_impact_type.png")
 tables["impact"] = fi
 
-# 7. Crash location map (hexbin), plus KSI share in Sydney inset
+# 7. Crash location map (hexbin) with NSW / Sydney boundaries and major cities
+import geopandas as gpd
+from matplotlib.patches import Rectangle
+BND = ROOT / "data" / "external" / "boundaries"
+nsw_outline = gpd.read_file(BND / "nsw_state.geojson")
+greater_syd = gpd.read_file(BND / "greater_sydney.geojson")
+lgas = gpd.read_file(BND / "nsw_lga_2024.geojson")
+CITIES = {"Sydney": (151.2093, -33.8688), "Newcastle": (151.7817, -32.9283), "Wollongong": (150.8931, -34.4278)}
+SYD_BOX = dict(lon=(149.9, 151.75), lat=(-34.4, -32.95))  # Greater Sydney extent, padded
+
 geo = c.dropna(subset=["Latitude", "Longitude"])
 geo = geo[geo.Longitude < 154]  # exclude Lord Howe Island from the mainland map
-fig, axes = plt.subplots(1, 2, figsize=(11, 5.2))
-hb = axes[0].hexbin(geo.Longitude, geo.Latitude, gridsize=90, bins="log", cmap=SEQ, mincnt=1)
-axes[0].set_title("Crash locations, NSW 2020–2024"); axes[0].set_aspect(1.2); axes[0].grid(False)
-fig.colorbar(hb, ax=axes[0], shrink=0.7, label="Crashes per cell (log scale)")
-syd = geo[geo.Latitude.between(-34.2, -33.55) & geo.Longitude.between(150.6, 151.35)]
-hb2 = axes[1].hexbin(syd.Longitude, syd.Latitude, C=syd.ksi * 100, reduce_C_function=np.mean,
-                     gridsize=45, cmap=SEQ, mincnt=15, vmin=10, vmax=45)
-axes[1].set_title("Sydney: fatal or serious share (%)"); axes[1].set_aspect(1.2); axes[1].grid(False)
-fig.colorbar(hb2, ax=axes[1], shrink=0.7, label="% fatal or serious (cells with 15+ crashes; capped 10–45)")
+fig, axes = plt.subplots(1, 2, figsize=(12, 5.6))
+
+# Left: all crashes in NSW, count per hexagon (log scale)
+ax = axes[0]
+lgas.boundary.plot(ax=ax, color=GRID, linewidth=0.4, zorder=1)
+hb = ax.hexbin(geo.Longitude, geo.Latitude, gridsize=90, bins="log", cmap=SEQ, mincnt=1, zorder=2)
+nsw_outline.boundary.plot(ax=ax, color=INK2, linewidth=0.9, zorder=3)
+ax.add_patch(Rectangle((SYD_BOX["lon"][0], SYD_BOX["lat"][0]), np.diff(SYD_BOX["lon"])[0], np.diff(SYD_BOX["lat"])[0],
+                       fill=False, ec=INK, lw=0.9, ls="--", zorder=4))
+label_pos = {"Newcastle": (153.9, -32.3), "Sydney": (153.9, -33.6), "Wollongong": (153.9, -34.9)}
+for city, (lon, lat) in CITIES.items():
+    ax.plot(lon, lat, "o", ms=5, mfc="white", mec=INK, mew=1.2, zorder=5)
+    ax.annotate(city, xy=(lon, lat), xytext=label_pos[city], fontsize=9, fontweight="bold", color=INK,
+                va="center", arrowprops=dict(arrowstyle="-", color=INK, lw=0.8), zorder=5)
+ax.set_xlim(140.6, 156.2); ax.set_ylim(-37.8, -27.9)
+ax.set_title("Crash locations, NSW 2020–2024"); ax.set_aspect(1.2); ax.grid(False)
+fig.colorbar(hb, ax=ax, shrink=0.7, label="Crashes per cell (log scale)")
+
+# Right: Sydney, share of crashes that are fatal or serious
+ax = axes[1]
+syd = geo[geo.Latitude.between(*SYD_BOX["lat"]) & geo.Longitude.between(*SYD_BOX["lon"])]
+hb2 = ax.hexbin(syd.Longitude, syd.Latitude, C=syd.ksi * 100, reduce_C_function=np.mean,
+                gridsize=60, cmap=SEQ, mincnt=15, vmin=10, vmax=45, zorder=2)
+lgas.boundary.plot(ax=ax, color=INK2, linewidth=0.35, alpha=0.6, zorder=3)
+greater_syd.boundary.plot(ax=ax, color=INK, linewidth=1.2, zorder=4)
+syd_labels = {"Sydney CBD": (151.45, -33.75), "Newcastle": (151.95, -33.2), "Wollongong": (151.2, -34.32)}
+for city, xy in zip(syd_labels, [CITIES["Sydney"], CITIES["Newcastle"], CITIES["Wollongong"]]):
+    if SYD_BOX["lon"][0] < xy[0] < SYD_BOX["lon"][1] + 0.3 and SYD_BOX["lat"][0] < xy[1] < SYD_BOX["lat"][1]:
+        ax.plot(*xy, "o", ms=5, mfc="white", mec=INK, mew=1.2, zorder=5)
+        ax.annotate(city, xy=xy, xytext=syd_labels[city], fontsize=8, fontweight="bold", color=INK, va="center",
+                    arrowprops=dict(arrowstyle="-", color=INK, lw=0.8), zorder=5)
+ax.set_xlim(SYD_BOX["lon"][0], SYD_BOX["lon"][1] + 0.45); ax.set_ylim(*SYD_BOX["lat"])
+ax.set_title("Greater Sydney: fatal or serious share (%)"); ax.set_aspect(1.2); ax.grid(False)
+fig.colorbar(hb2, ax=ax, shrink=0.7, label="% fatal or serious (cells with 15+ crashes; capped 10–45)")
 for ax in axes:
     ax.set_xlabel("Longitude"); ax.set_ylabel("Latitude")
+fig.text(0.01, 0.01, "Boundaries: ABS ASGS Ed. 3 (state, Greater Sydney, LGAs 2024), CC BY 4.0. "
+         "Thin lines are council areas; the dashed box marks the right panel; the bold line on the right is Greater Sydney.", fontsize=7, color=INK2)
 save(fig, "06_crash_map.png")
 
 # 8. Top LGAs by crashes and by KSI rate
