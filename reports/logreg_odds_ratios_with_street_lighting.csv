@@ -1,0 +1,133 @@
+,odds_ratio
+Street lighting_Unknown / not stated,0.163217438674701
+Key TU type_Unknown type,0.24120158087791982
+Key TU type_Unknown motor vehicle,0.344285685005394
+First impact type_Vehicle - Animal,0.5345461064973692
+Speed limit_40 km/h,0.5409516077963885
+First impact type_Rear end,0.5570790017204132
+Natural lighting_Unknown,0.5616015490749933
+Surface condition_Snow or ice,0.5780737574475322
+Speed limit_30 km/h,0.6084437659038892
+Key TU type_B-double (road train prior 98),0.6742482213808687
+Key TU type_Large rigid,0.6958982194697904
+Weather_Other,0.697630962970166
+Surface condition_Wet,0.7092902671083636
+Key TU type_Other bus,0.7215200939773543
+Speed limit_50 km/h,0.7293926784377687
+Type of location_L-junction,0.7314832909085647
+Key TU type_Semi-trailer,0.7372391143603003
+Signals operation_Off,0.7376274746823757
+First impact type_Other angle,0.7631363519591727
+Type of location_1-way street,0.7634443929308279
+Surface condition_Dry,0.7638681327072429
+Road surface_Sealed,0.7661618316497061
+has_parked_vehicle,0.7832566839260101
+Road surface_Unsealed,0.8057505267687298
+Weather_Snowing,0.8110004358746038
+Signals operation_Unknown / not stated,0.8114655866047158
+Other traffic control_Ped crossing,0.8154453811316847
+Two-hour intervals_02:00 - 03:59,0.8173989348678449
+Type of location_Roundabout,0.8223339813143344
+Other traffic control_Road/rail worker,0.8254424588123923
+Key TU type_STA bus,0.8341794908880897
+First impact type_Unknown,0.8530540875194995
+School zone active_Not a school zone,0.8537832186852929
+Speed limit_10 km/h,0.8543911966334086
+School zone active_No,0.8647861035654129
+Alignment_Straight,0.8664662734975895
+First impact type_Right angle,0.8686663615680911
+Two-hour intervals_00:01 - 01:59,0.8693879357279907
+Other traffic control_Left turn only,0.8828389516730419
+Urbanisation_Country urban,0.8908798405511665
+Road classification (admin)_State,0.8927012056979192
+First impact type_Vehicle - Object,0.9077776937732029
+Speed limit_infrequent_sklearn,0.9087092870457308
+Urbanisation_Country non-urban,0.9205790247290035
+Other traffic control_infrequent_sklearn,0.9206829025788026
+Urbanisation_infrequent_sklearn,0.9257294954743033
+Type of location_Divided road,0.9285741072519959
+Day of week of crash_Saturday,0.9391041503390091
+Key TU type_Utility,0.9432706090302039
+First impact type_Rollover,0.9485807062458494
+Two-hour intervals_04:00 - 05:59,0.9518207536928426
+Road classification (admin)_Regional,0.9523770022018003
+Day of week of crash_Wednesday,0.9527532119060507
+Alignment_Curved,0.953611703549178
+Type of location_infrequent_sklearn,0.9547645188363147
+Two-hour intervals_16:00 - 17:59,0.9578192076187554
+Two-hour intervals_22:00 - Midnight,0.9581637361159048
+Day of week of crash_Sunday,0.9655557181282126
+Day of week of crash_Thursday,0.9677709114964697
+Road classification (admin)_Local,0.971870084915082
+Speed limit_60 km/h,0.9734866962982065
+Day of week of crash_Tuesday,0.9761326817846084
+Two-hour intervals_20:00 - 21:59,0.9786191814520351
+Urbanisation_Newcastle met. area,0.981179922230307
+Day of week of crash_Friday,0.9818213135403971
+Two-hour intervals_08:00 - 09:59,1.0115335706662842
+Two-hour intervals_18:00 - 19:59,1.0146395440056848
+Other traffic control_No traffic controls,1.0193715177746743
+Natural lighting_Dusk,1.0200888320808499
+Two-hour intervals_06:00 - 07:59,1.0219408344059382
+Weather_Unknown,1.0262690758224653
+Type of location_X-intersection,1.0271567121617573
+Day of week of crash_Monday,1.0311879757517308
+Two-hour intervals_infrequent_sklearn,1.0349329114713044
+Other traffic control_Give way sign,1.0372249360676542
+Two-hour intervals_14:00 - 15:59,1.0421016813324853
+Urbanisation_Sydney metro. area,1.0457133564273469
+Type of location_Dual freeway,1.0511882413283204
+Urbanisation_Wollongong met. area,1.0607123348724776
+First impact type_Vehicle - Pedestrian,1.0619167384577348
+Weather_Fog or mist,1.062510381102947
+Natural lighting_Darkness,1.0674859253851527
+Weather_Overcast,1.0801044351375206
+Type of location_T-junction,1.0811448797280123
+Other traffic control_Other traf. control,1.0829543626745808
+Other traffic control_Stop sign,1.0831683456032657
+Type of location_2-way undivided,1.0838480880860952
+Type of location_Y-junction,1.0856002629887336
+Two-hour intervals_10:00 - 11:59,1.0905334964156426
+Weather_Fine,1.0924678364700955
+Key TU type_Motor scooter,1.0960351441380451
+Natural lighting_Daylight,1.1021830515811115
+Two-hour intervals_12:00 - 13:59,1.1025651231539395
+Type of location_Single limited access,1.1091982142202093
+School zone active_Yes,1.1190949054381678
+Key TU type_Light truck,1.1222194961827228
+Weather_Raining,1.1350305900607647
+First impact type_infrequent_sklearn,1.1389226919289197
+Type of location_Other,1.142349951785809
+Key TU type_4 wheel drive / SUV,1.146697941398676
+Signals operation_Nil,1.1624141327349589
+Type of location_Multiple intersection,1.166091296951614
+Key TU type_Light truck utility(from 2018),1.171597779982391
+Speed limit_90 km/h,1.1729176608584673
+Key TU type_Car (sedan/hatch),1.181039433027863
+Speed limit_70 km/h,1.1836908672899995
+Signals operation_On,1.187558910235145
+No. of traffic units involved,1.1876888019726557
+Other traffic control_No right turn,1.2176947411087649
+Key TU type_Station wagon,1.21780474314381
+Natural lighting_Dawn,1.225860522029153
+Key TU type_Pedal cycle,1.2928761114101754
+Key TU type_infrequent_sklearn,1.295222073069873
+Key TU type_Motorised push scooters,1.3122293344238465
+Road surface_Unknown,1.338449915119972
+Key TU type_Motorcycle,1.348728728989913
+Speed limit_80 km/h,1.3561813222031869
+Speed limit_100 km/h,1.4780079684759104
+Street lighting_On,1.488559537711123
+Key TU type_Passenger van,1.531923073338458
+First impact type_Head-on,1.611844722366146
+has_heavy_vehicle,1.6155482727377355
+Speed limit_110 km/h,1.636329895723917
+Street lighting_Off,1.8189015004031905
+Street lighting_Nil,1.8697402879032048
+hit_tree_or_pole,2.0961714296155707
+has_pedal_cycle,2.373634457719006
+Surface condition_Unknown,2.638138476733811
+First impact type_Person - Object,2.9229935303107704
+has_pedestrian,3.0814828199612694
+has_motorcycle,3.6340605228928036
+Key TU type_Motorised scooter (mob. aid),4.695281092947993

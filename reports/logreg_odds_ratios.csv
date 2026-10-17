@@ -1,0 +1,129 @@
+,odds_ratio
+Natural lighting_Unknown,0.16845664937931132
+Key TU type_Unknown type,0.34305948083952015
+First impact type_Unknown,0.4147402454652927
+Key TU type_Unknown motor vehicle,0.4200340461017691
+First impact type_Vehicle - Animal,0.4218413674150314
+First impact type_Rear end,0.463723189036548
+Speed limit_40 km/h,0.5344187217077155
+Key TU type_Other bus,0.5548690468628429
+Key TU type_Large rigid,0.5828883856089345
+Speed limit_30 km/h,0.5873839463484085
+Surface condition_Snow or ice,0.6143901006267874
+Signals operation_Unknown / not stated,0.6394866722220995
+Key TU type_B-double (road train prior 98),0.6472205999011177
+Key TU type_Semi-trailer,0.6613826985672262
+Speed limit_50 km/h,0.6889167976961197
+First impact type_Other angle,0.6919827568108383
+Type of location_Roundabout,0.7197358625739408
+Other traffic control_Ped crossing,0.7677403088514428
+Speed limit_infrequent_sklearn,0.7731883099287244
+Alignment_Straight,0.7769108062382635
+Type of location_1-way street,0.7788896371385664
+Urbanisation_infrequent_sklearn,0.7806061402371764
+Weather_Snowing,0.7808920607803107
+Signals operation_Off,0.7850778314050645
+School zone active_No,0.7979544750068559
+Road surface_Unsealed,0.8019285675702789
+Key TU type_STA bus,0.8033105431729309
+School zone active_Not a school zone,0.8091244831570384
+Road surface_Sealed,0.8159469706688152
+Type of location_L-junction,0.8180436665746077
+Road classification (admin)_State,0.8246406450002716
+Speed limit_10 km/h,0.8307499353930315
+Surface condition_Wet,0.8389061939834268
+Other traffic control_Road/rail worker,0.8403024776045548
+First impact type_Right angle,0.8473477390383919
+Weather_Other,0.8603332521725604
+Other traffic control_Left turn only,0.8604453564513572
+Alignment_Curved,0.8688230922502262
+Two-hour intervals_16:00 - 17:59,0.8899656707233974
+Type of location_Divided road,0.8937191292326322
+Two-hour intervals_08:00 - 09:59,0.8981413109780146
+Road classification (admin)_Regional,0.8984724628913098
+Road classification (admin)_Local,0.9110306955767087
+Type of location_infrequent_sklearn,0.9128237568357597
+Two-hour intervals_02:00 - 03:59,0.9138880547593429
+Day of week of crash_Saturday,0.9220353542965302
+Day of week of crash_Wednesday,0.9221144609747391
+Other traffic control_No traffic controls,0.9293086365359892
+Urbanisation_Country non-urban,0.9306613015316495
+Day of week of crash_Friday,0.9311753037299411
+Speed limit_60 km/h,0.9333009109834002
+Day of week of crash_Thursday,0.9408294385775978
+Day of week of crash_Tuesday,0.9416507047959054
+Weather_Unknown,0.9520708387837091
+Day of week of crash_Sunday,0.9542483635011877
+Two-hour intervals_14:00 - 15:59,0.9573638109415562
+Urbanisation_Country urban,0.9684141654339159
+Surface condition_Dry,0.9698697104845697
+Two-hour intervals_06:00 - 07:59,0.9709796114959645
+Other traffic control_infrequent_sklearn,0.9724771055364139
+Key TU type_Utility,0.9741316875584985
+Two-hour intervals_10:00 - 11:59,0.9773274980380903
+has_parked_vehicle,0.9795667433443099
+Two-hour intervals_04:00 - 05:59,0.9806755866250922
+Urbanisation_Newcastle met. area,0.9818852300852564
+Two-hour intervals_00:01 - 01:59,0.9837654898826551
+Urbanisation_Sydney metro. area,0.984397997244535
+Weather_Overcast,0.9848038620413366
+Urbanisation_Wollongong met. area,0.9926275318409912
+Other traffic control_Give way sign,0.9938633413532361
+Two-hour intervals_12:00 - 13:59,0.9939423993875472
+Weather_Fog or mist,0.998602734017112
+Two-hour intervals_18:00 - 19:59,0.9997844219460859
+Type of location_Dual freeway,1.001362444888723
+Two-hour intervals_22:00 - Midnight,1.0046817403603705
+Two-hour intervals_20:00 - 21:59,1.0049893116605138
+First impact type_Rollover,1.0069953058387775
+Day of week of crash_Monday,1.0085013966127285
+Type of location_X-intersection,1.0102355811524986
+Other traffic control_Stop sign,1.0131272025415734
+Type of location_Y-junction,1.0184365850882615
+Key TU type_Motor scooter,1.0244452963509487
+Road surface_Unknown,1.0315847144973802
+Weather_Fine,1.0325666492382322
+Weather_Raining,1.0392378375125082
+School zone active_Yes,1.0454639461930815
+First impact type_Vehicle - Object,1.0457986408605382
+Key TU type_4 wheel drive / SUV,1.0474716310971688
+Two-hour intervals_infrequent_sklearn,1.0507269497001746
+Type of location_T-junction,1.0759638450005171
+Key TU type_Car (sedan/hatch),1.086870629302579
+Type of location_Multiple intersection,1.0888269802054964
+Key TU type_Light truck,1.089288950836654
+Key TU type_Station wagon,1.105457177569226
+Key TU type_Light truck utility(from 2018),1.1147759802196608
+Type of location_2-way undivided,1.117562050811218
+Speed limit_70 km/h,1.1184503847973748
+Signals operation_Nil,1.136285857070037
+Other traffic control_Other traf. control,1.1440496798747777
+Type of location_Other,1.1516643793619574
+Type of location_Single limited access,1.1614135528513838
+Other traffic control_No right turn,1.168030932095381
+Signals operation_On,1.183234174590755
+First impact type_infrequent_sklearn,1.192379772314176
+Key TU type_Pedal cycle,1.2088085606165426
+Key TU type_Motorcycle,1.2132166237785351
+Speed limit_90 km/h,1.2422751340917724
+Key TU type_Motorised push scooters,1.251882425012323
+Natural lighting_Dusk,1.2599317638402956
+First impact type_Vehicle - Pedestrian,1.2758577688465815
+No. of traffic units involved,1.2819265474336567
+Surface condition_Unknown,1.3503038652132686
+Natural lighting_Darkness,1.3887270394103155
+Speed limit_80 km/h,1.412106122180218
+Key TU type_infrequent_sklearn,1.4340532517815472
+Key TU type_Passenger van,1.4605739918031033
+Natural lighting_Dawn,1.4748537568852556
+Speed limit_100 km/h,1.523468425359424
+Natural lighting_Daylight,1.552749807157241
+Speed limit_110 km/h,1.741884732207622
+has_heavy_vehicle,1.8173674947376413
+First impact type_Head-on,1.992981323326594
+hit_tree_or_pole,2.4730543341422404
+has_pedal_cycle,4.329772751153825
+has_pedestrian,4.406859796568194
+First impact type_Person - Object,4.443915570734821
+has_motorcycle,5.716687507962239
+Key TU type_Motorised scooter (mob. aid),7.181854701822709

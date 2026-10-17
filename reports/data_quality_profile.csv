@@ -1,0 +1,51 @@
+column,dtype,n_unique,pct_missing,pct_unknown_coded,top_value,pct_missing_or_unknown
+Crash ID,int64,92189,0.0,0.0,1220987,0.0
+Degree of crash,object,3,0.0,0.0,Injury,0.0
+Degree of crash - detailed,object,5,0.0,0.0,Non-casualty (towaway),0.0
+Reporting year,int64,5,0.0,0.0,2024,0.0
+Year of crash,int64,6,0.0,0.0,2024,0.0
+Month of crash,object,12,0.0,0.0,May,0.0
+Day of week of crash,object,7,0.0,0.0,Friday,0.0
+Two-hour intervals,object,13,0.0,0.01,16:00 - 17:59,0.01
+Street of crash,object,10117,0.0,0.0,PACIFIC,0.0
+Street type,object,37,0.0,0.0,RD,0.0
+Distance,int64,1090,0.0,0.0,0,0.0
+Direction,object,6,0.0,0.0,Right on the spot,0.0
+Identifying feature,object,18381,0.0,0.0,PACIFIC HIGHWAY,0.0
+Identifying feature type,object,62,0.0,0.0,RD,0.0
+Town,object,3694,0.0,0.0,BANKSTOWN,0.0
+Route no.,float64,850,37.58,0.0,10.0,37.58
+School zone location,object,3,0.0,0.01,No,0.01
+School zone active,object,3,0.0,0.0,Not a school zone,0.0
+Type of location,object,13,0.0,0.01,2-way undivided,0.01
+Latitude,float64,74883,0.0,0.0,-33.799075,0.0
+Longitude,float64,75565,0.0,0.0,151.053967,0.0
+LGA,object,130,0.0,0.0,Canterbury-Bankstown,0.0
+Urbanisation,object,6,0.0,0.02,Sydney metro. area,0.02
+Conurbation 1,object,4,0.0,0.02,Syd-Newc-Woll Gtr conurbation,0.02
+Alignment,object,3,0.0,0.0,Straight,0.0
+Primary permanent feature,object,25,72.97,0.0,Steep grade,72.97
+Primary temporary feature,object,7,98.55,0.0,Roadwks/Detour/Diverson,98.55
+Primary hazardous feature,object,6,97.96,0.0,Potholes/corrugations/rough,97.96
+Street lighting,object,4,0.0,36.47,Unknown / not stated,36.47
+Road surface,object,3,0.0,0.07,Sealed,0.07
+Surface condition,object,4,0.0,0.67,Dry,0.67
+Weather,object,7,0.0,1.24,Fine,1.24
+Natural lighting,object,5,0.0,0.47,Daylight,0.47
+Signals operation,object,4,0.0,0.75,Nil,0.75
+Other traffic control,object,17,0.0,0.03,No traffic controls,0.03
+Speed limit,object,12,0.0,0.03,50 km/h,0.03
+Road classification (admin),object,3,0.0,0.0,State,0.0
+RUM - code,int64,86,0.0,0.0,30,0.0
+RUM - description,object,86,0.0,0.03,Rear end,0.03
+DCA - code,int64,84,0.0,0.0,301,0.0
+DCA - description,object,84,0.0,0.0,Same - Rear end,0.0
+DCA supplement,object,2,86.75,0.0,Left,86.75
+First impact type,object,11,0.0,0.14,Other angle,0.14
+Key TU type,object,36,0.0,1.93,Car (sedan/hatch),1.93
+Other TU type,object,43,30.41,0.64,Car (sedan/hatch),31.05
+No. of traffic units involved,int64,17,0.0,0.0,2,0.0
+No. killed,int64,7,0.0,0.0,0,0.0
+No. seriously injured,int64,9,0.0,0.0,0,0.0
+No. moderately injured,int64,11,0.0,0.0,0,0.0
+No. minor-other injured,int64,13,0.0,0.0,0,0.0
